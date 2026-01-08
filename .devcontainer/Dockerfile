@@ -11,13 +11,29 @@ RUN apt-get update && apt-get install -y \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# pip 업그레이드 및 기본 개발 도구 설치
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir \
+# pip 업그레이드
+RUN pip install --no-cache-dir --upgrade pip
+
+# 코드 품질 도구
+RUN pip install --no-cache-dir \
     black \
     pylint \
     pytest
 
+# API 통신 예제용 패키지
+RUN pip install --no-cache-dir \
+    # REST API
+    flask \
+    requests \
+    # gRPC
+    grpcio \
+    grpcio-tools \
+    # WebSocket
+    flask-socketio \
+    "python-socketio[client]" \
+    # Message Queue
+    redis \
+    pika
+
 # 작업 디렉토리 설정
 WORKDIR /workspace
-
