@@ -1,0 +1,81 @@
+# 마이크로서비스 API 통신 테스트 환경
+# 사용법: docker-compose up -d
+
+services:
+  # ===========================================
+  # 인프라 서비스
+  # ===========================================
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # ===========================================
+  # REST API 서버
+  # ===========================================
+
+  rest-api:
+    build:
+      context: .
+      dockerfile: rest_api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ===========================================
+  # gRPC 서버
+  # ===========================================
+
+  grpc-server:
+    build:
+      context: .
+      dockerfile: grpc/Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ===========================================
+  # WebSocket 서버
+  # ===========================================
+
+  websocket-server:
+    build:
+      context: .
+      dockerfile: websocket/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ===========================================
+  # Message Queue Worker
+  # ===========================================
+
+  worker:
+    build:
+      context: .
+      dockerfile: message_queue/Dockerfile
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2 # 2개의 Worker 인스턴스
