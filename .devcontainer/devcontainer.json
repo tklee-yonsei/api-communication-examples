@@ -1,5 +1,5 @@
 {
-    "name": "Python Development (Copilot & GitFlow)",
+    "name": "API Communication Examples",
     "build": {
         "dockerfile": "Dockerfile"
     },
@@ -14,25 +14,23 @@
                 "DavidAnson.vscode-markdownlint",
                 "yzhang.markdown-all-in-one",
                 "GitHub.copilot",
-                "GitHub.copilot-chat"
+                "GitHub.copilot-chat",
+                "zxh404.vscode-proto3"
             ],
             "settings": {
-                // Python 인터프리터 경로 설정 (자동 감지)
                 "python.defaultInterpreterPath": "/usr/local/bin/python",
-                // Black을 기본 Python 포맷터로 설정
                 "[python]": {
                     "editor.defaultFormatter": "ms-python.black-formatter",
                     "editor.formatOnSave": false
                 },
-                // Code Runner 설정: 실행 시 터미널을 사용하도록 설정 (입력값 처리 가능)
                 "code-runner.runInTerminal": true,
                 "code-runner.saveFileBeforeRun": true,
-                // Python 파일 실행 설정
                 "code-runner.executorMap": {
                     "python": "python3 -u"
                 }
             }
         }
     },
-    "remoteUser": "root"
+    "remoteUser": "root",
+    "postCreateCommand": "echo '개발 환경 준비 완료! docker-compose로 테스트 환경을 실행하세요.'"
 }
