@@ -43,13 +43,13 @@ VS Code에서 Dev Container로 열면 필요한 패키지가 자동 설치됩니
 docker-compose up -d
 ```
 
-| 서비스           | 포트  | 설명                 |
-| ---------------- | ----- | -------------------- |
-| REST API         | 8080  | Flask REST 서버      |
-| WebSocket        | 8081  | Flask-SocketIO 서버  |
-| gRPC             | 50051 | gRPC 서버            |
-| Redis            | 6379  | Message Queue        |
-| Worker           | -     | 작업 처리 (2 인스턴스) |
+| 서비스    | 포트  | 설명                   |
+| --------- | ----- | ---------------------- |
+| REST API  | 8080  | Flask REST 서버        |
+| WebSocket | 8081  | Flask-SocketIO 서버    |
+| gRPC      | 50051 | gRPC 서버              |
+| Redis     | 6379  | Message Queue          |
+| Worker    | -     | 작업 처리 (2 인스턴스) |
 
 ## 참고 자료
 
