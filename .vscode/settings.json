@@ -1,0 +1,16 @@
+{
+    // Black 포맷터가 pyproject.toml을 인식하도록 설정
+    "black-formatter.cwd": "${workspaceFolder}",
+    // Pylance 분석 설정 (타입 체킹은 pyproject.toml의 basedpyright에서 관리)
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.diagnosticMode": "workspace",
+    // mypy 타입 체커 설정: 에디터에서 실시간 타입 체킹 (pyproject.toml의 mypy 설정 사용)
+    "mypy-type-checker.enabled": true,
+    "mypy-type-checker.reportingScope": "workspace",
+    // pytest 테스트 설정
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+        "tests"
+    ]
+}

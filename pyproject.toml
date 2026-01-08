@@ -1,0 +1,31 @@
+[tool.black]
+line-length = 88
+
+# isort: import 문 정렬 (Black과 호환)
+[tool.isort]
+profile = "black"
+
+# mypy: 타입 체킹 (Pylance와 함께 사용)
+[tool.mypy]
+python_version = "3.14"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true  # 타입 힌트가 없는 함수 허용 안 함
+disallow_incomplete_defs = true  # 부분 타입 힌트 허용 안 함
+ignore_missing_imports = true
+
+# basedpyright: 타입 체킹 (에디터에서 실시간)
+[tool.basedpyright]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+reportUnusedVariable = "warning"
+reportUnusedImport = "warning"
+
+# pytest: 테스트 프레임워크
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+pythonpath = ["."]
