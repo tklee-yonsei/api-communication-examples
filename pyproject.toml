@@ -1,3 +1,15 @@
+[project]
+name = "api-communication-examples"
+version = "0.1.0"
+description = "REST/gRPC/WebSocket/Message Queue comparison playground."
+requires-python = ">=3.11"
+dependencies = [
+  "flask>=3.0",
+  "requests>=2.32",
+  "werkzeug>=3.0",
+  "types-requests>=2.32.0.20241016",
+]
+
 [tool.black]
 line-length = 88
 

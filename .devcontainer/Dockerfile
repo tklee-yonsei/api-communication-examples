@@ -14,11 +14,12 @@ RUN apt-get update && apt-get install -y \
 # pip 업그레이드
 RUN pip install --no-cache-dir --upgrade pip
 
-# 코드 품질 도구
+# 코드 품질 도구 + 타입 스텁
 RUN pip install --no-cache-dir \
     black \
     pylint \
-    pytest
+    pytest \
+    types-requests
 
 # API 통신 예제용 패키지
 RUN pip install --no-cache-dir \
