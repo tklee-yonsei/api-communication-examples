@@ -23,9 +23,13 @@ RUN pip install --no-cache-dir \
 
 # API 통신 예제용 패키지
 RUN pip install --no-cache-dir \
-    # REST API
-    flask \
+    # REST API (FastAPI)
+    "fastapi>=0.115.0" \
+    "uvicorn[standard]>=0.32.0" \
+    "httpx>=0.27.0" \
     requests \
+    flask \
+    werkzeug \
     # gRPC
     grpcio \
     grpcio-tools \
