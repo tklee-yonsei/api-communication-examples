@@ -1,0 +1,133 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f6f7fb;
+  color: #1f2430;
+}
+
+.layout {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+header h1 {
+  margin: 0 0 8px 0;
+  font-size: 30px;
+}
+
+header p {
+  margin: 0;
+  color: #5a6274;
+}
+
+.card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e8f0;
+}
+
+.card h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+label {
+  font-weight: 600;
+  color: #2f3545;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccd2e0;
+  font-size: 14px;
+  background: #fbfcff;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #4a6cf7, #6b8cff);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(74, 108, 247, 0.2);
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(74, 108, 247, 0.24);
+}
+
+button.danger {
+  background: linear-gradient(135deg, #e85c5c, #ff7a7a);
+  box-shadow: 0 8px 20px rgba(232, 92, 92, 0.2);
+}
+
+button.ghost {
+  background: #eff2fb;
+  color: #2f3c5b;
+  box-shadow: none;
+  border: 1px solid #d8def0;
+}
+
+.hint {
+  margin: 0;
+  color: #6b7285;
+  font-size: 13px;
+}
+
+.output {
+  background: #0d1117;
+  color: #d1d5db;
+  border-radius: 10px;
+  padding: 12px;
+  overflow-x: auto;
+  min-height: 80px;
+  border: 1px solid #1f2937;
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

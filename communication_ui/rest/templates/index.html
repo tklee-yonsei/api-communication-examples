@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Communication Playground (REST)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+
+<body>
+  <main class="layout">
+    <header>
+      <h1>Communication Playground (REST)</h1>
+      <p>REST 엔드포인트에 대량 요청(1/100/10000)을 보내고 속도/정확도를 확인하세요.</p>
+    </header>
+
+    <section class="card">
+      <h2>설정</h2>
+      <div class="field">
+        <label for="baseUrl">REST API Base URL</label>
+        <input id="baseUrl" type="text" value="{{ default_base_url }}" />
+        <p class="hint">devcontainer/로컬: host.docker.internal:8080. Docker 내부: rest-api:8080.</p>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="jobType">job type</label>
+          <input id="jobType" type="text" value="echo" />
+        </div>
+        <div class="field">
+          <label for="concurrency">동시 요청 수</label>
+          <input id="concurrency" type="number" value="8" min="1" max="64" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="params">params (JSON)</label>
+        <textarea id="params" rows="4">{ "message": "hello" }</textarea>
+      </div>
+      <div class="actions">
+        <button data-count="1">1개 전송</button>
+        <button data-count="100">100개 전송</button>
+        <button data-count="10000" class="danger">10000개 전송</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Job 타입 예시</h2>
+      <div class="examples">
+        <button class="ghost" data-job='{"type":"echo","params":{"message":"hi"}}'>echo</button>
+        <button class="ghost" data-job='{"type":"calc","params":{"op":"mul","a":6,"b":7}}'>calc</button>
+        <button class="ghost" data-job='{"type":"hash","params":{"foo":"bar"}}'>hash</button>
+        <button class="ghost" data-job='{"type":"stats","params":{"values":[1,2,3,4,5]}}'>stats</button>
+        <button class="ghost" data-job='{"type":"fib","params":{"n":10}}'>fib</button>
+      </div>
+      <p class="hint">예시 버튼을 누르면 job type과 params가 자동으로 채워집니다. n은 최대 40, values는 숫자 배열이어야 합니다.</p>
+    </section>
+
+    <section class="card">
+      <h2>결과</h2>
+      <pre id="result" class="output">아직 실행 결과가 없습니다.</pre>
+    </section>
+
+    <section class="card">
+      <h2>상태 조회</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="jobId">job id</label>
+          <input id="jobId" type="text" placeholder="생성된 job_id 입력" />
+        </div>
+        <div class="field">
+          <label for="baseUrlStatus">REST API Base URL</label>
+          <input id="baseUrlStatus" type="text" value="{{ default_base_url }}" />
+        </div>
+      </div>
+      <div class="actions">
+        <button id="fetchStatus">상태 조회</button>
+      </div>
+      <pre id="statusResult" class="output">조회 결과가 여기 표시됩니다.</pre>
+    </section>
+  </main>
+
+  <script>
+    const buttons = document.querySelectorAll("button[data-count]");
+    const resultBox = document.getElementById("result");
+    const statusBox = document.getElementById("statusResult");
+    const exampleButtons = document.querySelectorAll("button[data-job]");
+
+    exampleButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        try {
+          const { type, params } = JSON.parse(btn.dataset.job || "{}");
+          document.getElementById("jobType").value = type || "";
+          document.getElementById("params").value = JSON.stringify(params || {}, null, 2);
+        } catch (err) {
+          console.error("failed to load example", err);
+        }
+      });
+    });
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const count = Number(btn.dataset.count || "1");
+        runBatch(count);
+      });
+    });
+
+    document.getElementById("fetchStatus").addEventListener("click", async () => {
+      const jobId = document.getElementById("jobId").value.trim();
+      const baseUrl = document.getElementById("baseUrlStatus").value.trim();
+      if (!jobId) {
+        statusBox.textContent = "job id를 입력하세요.";
+        return;
+      }
+      statusBox.textContent = "조회 중...";
+      try {
+        const resp = await fetch(`/api/jobs/${encodeURIComponent(jobId)}?base_url=${encodeURIComponent(baseUrl)}`);
+        const data = await resp.json();
+        statusBox.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        statusBox.textContent = `조회 오류: ${err}`;
+      }
+    });
+
+    async function runBatch(count) {
+      const baseUrl = document.getElementById("baseUrl").value.trim();
+      const jobType = document.getElementById("jobType").value.trim() || "default";
+      const concurrency = Number(document.getElementById("concurrency").value || "1");
+      const paramsText = document.getElementById("params").value;
+
+      let params;
+      try {
+        params = paramsText ? JSON.parse(paramsText) : {};
+      } catch (err) {
+        resultBox.textContent = "params JSON 파싱 오류: " + err;
+        return;
+      }
+
+      resultBox.textContent = `요청 중... (${count}개)`;
+      try {
+        const resp = await fetch("/api/jobs/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ base_url: baseUrl, job_type: jobType, params, count, concurrency }),
+        });
+        const data = await resp.json();
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resultBox.textContent = `실패: ${err}`;
+      }
+    }
+  </script>
+</body>
+
+</html>
