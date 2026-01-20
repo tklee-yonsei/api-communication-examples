@@ -3,6 +3,11 @@
     "build": {
         "dockerfile": "Dockerfile"
     },
+    "containerEnv": {
+        "UV_SYSTEM_PYTHON": "1",
+        "UV_COMPILE_BYTECODE": "1",
+        "UV_PYTHON_DOWNLOADS": "never"
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -32,5 +37,5 @@
         }
     },
     "remoteUser": "root",
-    "postCreateCommand": "pip install -e . && echo '개발 환경 준비 완료! docker-compose로 테스트 환경을 실행하세요.'"
+    "postCreateCommand": "uv sync --all-groups --system && echo '개발 환경 준비 완료! docker-compose로 테스트 환경을 실행하세요.'"
 }
