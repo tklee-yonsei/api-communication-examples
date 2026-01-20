@@ -10,16 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# FastAPI 및 관련 패키지 설치
-RUN pip install --no-cache-dir \
-    fastapi>=0.115.0 \
-    "uvicorn[standard]>=0.32.0" \
-    httpx>=0.27.0 \
-    requests>=2.32 \
-    types-requests
-
+# 프로젝트 파일 복사
+COPY pyproject.toml /app/
 COPY communication/ /app/communication
 COPY rest_api/ /app/rest_api
+
+# pyproject.toml의 의존성 설치
+RUN pip install --no-cache-dir .
 
 EXPOSE 8080
 

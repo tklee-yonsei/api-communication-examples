@@ -1,13 +1,35 @@
 # 마이크로서비스 API 통신 테스트 환경
-# 사용법: docker-compose up -d
+#
+# 사용법:
+#   개발:     docker compose --profile dev up -d
+#   프로덕션: docker compose --profile prod up -d
 
 services:
   # ===========================================
-  # FastAPI REST API 서버 (외부에서 curl 테스트 가능)
-  # 자동 문서: http://localhost:8080/docs
+  # FastAPI REST API 서버 (개발용)
+  # 볼륨 마운트 + 핫리로드 활성화
   # ===========================================
+  rest-api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: rest_api/Dockerfile.dev
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./communication:/app/communication
+      - ./rest_api:/app/rest_api
+    networks:
+      - app-network
 
-  rest-api:
+  # ===========================================
+  # FastAPI REST API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  rest-api-prod:
+    profiles: ["prod"]
     build:
       context: .
       dockerfile: rest_api/Dockerfile
@@ -19,27 +41,43 @@ services:
       - app-network
 
   # ===========================================
-  # REST UI + 부하/정확도 테스트 도구
+  # REST UI (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
   # ===========================================
-  # 브라우저에서 http://localhost:3000 에 접속해
-  # 버튼(1/100/10000 요청)으로 FastAPI 서버에 대량 요청을 보낼 수 있습니다.
-  # 기본 대상은 docker 네트워크의 rest-api:8080 이며, UI에서 base URL을 바꿀 수 있습니다.
-
-  communication-ui:
+  communication-ui-dev:
+    profiles: ["dev"]
     build:
       context: .
-      dockerfile: communication_ui/Dockerfile
+      dockerfile: communication_ui/Dockerfile.dev
     ports:
-      - "3001:3000"  # Cursor IDE 포트 충돌 방지
+      - "3001:3000"
     environment:
-      - REST_API_BASE_URL=http://rest-api:8080
+      - REST_API_BASE_URL=http://rest-api-dev:8080
     volumes:
-      # 개발 중 실시간 코드 반영을 위한 볼륨 마운트
       - ./communication_ui:/app/communication_ui
       - ./communication:/app/communication
       - ./rest_api:/app/rest_api
     depends_on:
-      rest-api:
+      rest-api-dev:
+        condition: service_started
+    networks:
+      - app-network
+
+  # ===========================================
+  # REST UI (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  communication-ui-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: communication_ui/Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - REST_API_BASE_URL=http://rest-api-prod:8080
+    depends_on:
+      rest-api-prod:
         condition: service_started
     networks:
       - app-network
