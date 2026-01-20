@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional, TypeVar, Generic
+from typing import Optional, TypeVar, Generic, cast
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from pydantic.generics import GenericModel
 
 from rest_api.core.job_queue import Job, get_job_queue
 from rest_api.core.jobs import (
@@ -39,7 +38,7 @@ R = TypeVar("R", bound=BaseModel)
 E = TypeVar("E", bound=BaseModel)
 
 
-class JobPayload(GenericModel, Generic[P, R, E]):
+class JobPayload(BaseModel, Generic[P, R, E]):
     """서버가 보관하는 Job 상태 레코드 (Pydantic 제네릭 모델).
 
     Attributes:
@@ -84,22 +83,24 @@ class RestApiServer:
         self._register_routes()
 
     @staticmethod
-    def _pydantic_to_dict(obj: Any) -> dict[str, Any]:
+    def _pydantic_to_dict(obj: BaseModel | dict[str, object]) -> dict[str, object]:
         """Pydantic 모델을 dict로 변환합니다.
 
         Args:
             obj: Pydantic 모델 또는 일반 dict
 
         Returns:
-            dict: 변환된 dict
+            dict[str, object]: 변환된 dict
         """
-        if hasattr(obj, "model_dump"):
-            return obj.model_dump()
+        if isinstance(obj, BaseModel):
+            return cast(dict[str, object], obj.model_dump())
         return obj
 
     @staticmethod
     def _json_response(
-        result: Any, status_code: int = 200, key: str = "result"
+        result: BaseModel | dict[str, object],
+        status_code: int = 200,
+        key: str = "result",
     ) -> JSONResponse:
         """작업 결과를 JSONResponse로 반환합니다.
 

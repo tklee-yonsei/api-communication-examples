@@ -2,43 +2,36 @@
 
 from __future__ import annotations
 
-from typing import Any, Type, TypeVar, cast
+from typing import Any, cast
 
-from rest_api.core.jobs.types import (
-    CalcParams,
-    EchoParams,
-    FibParams,
-    HashParams,
-    StatsParams,
-)
-
-T = TypeVar("T", EchoParams, CalcParams, HashParams, StatsParams, FibParams)
+from pydantic import BaseModel
 
 
 class ValidationError(Exception):
     """파라미터 검증 실패 예외."""
 
 
-def validate_params(data: Any, param_type: Type[T]) -> T:
-    """요청 데이터를 검증하고 타입이 지정된 params로 변환합니다.
+def validate_params[T: BaseModel](data: Any, param_type: type[T]) -> dict[str, Any]:
+    """요청 데이터를 검증하고 dict로 반환합니다.
+
+    이 함수는 기본적인 dict 검증만 수행합니다.
+    실제 Pydantic 모델 검증은 각 job handler에서 수행됩니다.
 
     Args:
         data: 원본 요청 데이터 (보통 request.get_json() 결과)
-        param_type: 변환할 TypedDict 타입
+        param_type: 참조용 파라미터 타입 (현재는 사용되지 않음)
 
     Returns:
-        T: 검증된 params
+        dict[str, Any]: 검증된 dict
 
     Raises:
-        ValidationError: 검증 실패 시
+        ValidationError: dict가 아닌 경우
     """
+    _ = param_type  # 향후 Pydantic 검증에 사용 가능
     if not isinstance(data, dict):
         raise ValidationError("params must be a dict")
 
-    # 런타임 검증은 최소한으로만 수행
-    # TypedDict는 런타임에 검증되지 않으므로 cast 사용
-    # 각 job handler에서 추가 검증 수행
-    return cast(T, data)
+    return cast(dict[str, Any], data)
 
 
 def validate_dict_payload(data: Any) -> dict[str, Any]:

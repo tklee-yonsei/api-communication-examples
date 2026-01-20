@@ -109,11 +109,29 @@ def _parse_params(raw: object) -> dict[str, object]:
 
 
 def _coerce_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
-    try:
-        as_int = int(value)  # type: ignore[arg-type]
-    except Exception:
+    """값을 정수로 변환하고 범위 내로 제한합니다.
+
+    Args:
+        value: 정수로 변환할 값
+        default: 변환 실패 시 기본값
+        minimum: 허용되는 최소값
+        maximum: 허용되는 최대값
+
+    Returns:
+        int: 범위 내로 제한된 정수 값
+    """
+    as_int: int
+    if isinstance(value, int):
+        as_int = value
+    elif isinstance(value, (str, float)):
+        try:
+            as_int = int(value)
+        except (ValueError, TypeError):
+            as_int = default
+    else:
         as_int = default
-    return max(minimum, min(maximum, as_int))
+    clamped: int = max(minimum, min(maximum, as_int))
+    return clamped
 
 
 def _run_batch(
