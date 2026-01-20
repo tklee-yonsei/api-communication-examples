@@ -2,16 +2,29 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import cast
 
 from flask import Flask, Response, jsonify, make_response, render_template, request
+from flask_sock import Sock  # pyright: ignore[reportMissingTypeStubs]
 from requests import Session
+from simple_websocket import (
+    Server as WsServer,
+)  # pyright: ignore[reportMissingTypeStubs]
+
+# flask-sock 타입 정의 없음 - 타입 검사 무시
+# pyright: reportUnknownMemberType=false
 
 # Docker 네트워크 내부: rest-api:8080
 # devcontainer/로컬: host.docker.internal:8080 또는 localhost:8080
 DEFAULT_BASE_URL = os.getenv("REST_API_BASE_URL", "http://host.docker.internal:8080")
+# WebSocket URL (http -> ws 변환)
+DEFAULT_WS_URL = os.getenv(
+    "REST_API_WS_URL",
+    DEFAULT_BASE_URL.replace("http://", "ws://").replace("https://", "wss://"),
+)
 MAX_CONCURRENCY = 64
 MAX_COUNT = 20000
 
@@ -23,6 +36,7 @@ def create_app() -> Flask:
         static_folder="static",
         template_folder="templates",
     )
+    sock = Sock(app)
 
     # 개발 중 템플릿/정적 파일 캐싱 비활성화
     app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -38,6 +52,84 @@ def create_app() -> Flask:
             "index.html",
             default_base_url=DEFAULT_BASE_URL,
         )
+
+    @app.get("/api/jobs")
+    def list_jobs() -> Response:  # pyright: ignore[reportUnusedFunction]
+        """전체 Job 목록을 프록시합니다."""
+        base_url = str(request.args.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
+        limit = request.args.get("limit", "50")
+        session = Session()
+        try:
+            resp = session.get(f"{base_url}/jobs?limit={limit}", timeout=10)
+            resp.raise_for_status()
+            return jsonify(resp.json())
+        except Exception as exc:  # pragma: no cover
+            return make_response(jsonify({"error": str(exc)}), 500)
+        finally:
+            session.close()
+
+    @sock.route("/ws/jobs")  # pyright: ignore[reportUnusedFunction]
+    def websocket_jobs_proxy(  # pyright: ignore[reportUnusedFunction]
+        ws: WsServer,
+    ) -> None:
+        """REST API의 WebSocket을 프록시합니다."""
+        import websockets.sync.client as ws_client
+
+        base_url = request.args.get("base_url") or DEFAULT_BASE_URL
+        ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://")
+        ws_url = f"{ws_url}/ws/jobs"
+
+        try:
+            with ws_client.connect(ws_url) as upstream:
+                # 양방향 프록시를 위한 스레드
+                stop_event = threading.Event()
+
+                def forward_upstream_to_client() -> None:
+                    """upstream -> client 메시지 전달"""
+                    try:
+                        while not stop_event.is_set():
+                            try:
+                                msg = upstream.recv(timeout=1.0)
+                                if msg:
+                                    ws.send(msg)
+                            except TimeoutError:
+                                continue
+                    except Exception:
+                        pass
+
+                # upstream -> client 스레드 시작
+                forward_thread = threading.Thread(
+                    target=forward_upstream_to_client, daemon=True
+                )
+                forward_thread.start()
+
+                # client -> upstream 메인 루프
+                try:
+                    while True:
+                        try:
+                            data: str | bytes | None = ws.receive(
+                                timeout=30
+                            )  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+                            if data is None:
+                                break
+                            upstream.send(
+                                data
+                            )  # pyright: ignore[reportUnknownArgumentType]
+                        except TimeoutError:
+                            # ping 전송
+                            ws.send(
+                                json.dumps({"type": "ping"})
+                            )  # pyright: ignore[reportUnknownMemberType]
+                except Exception:
+                    pass
+                finally:
+                    stop_event.set()
+                    forward_thread.join(timeout=2.0)
+        except Exception as e:
+            try:
+                ws.send(json.dumps({"type": "error", "message": str(e)}))
+            except Exception:
+                pass
 
     @app.post("/api/jobs/batch")
     def create_jobs_batch() -> Response:  # pyright: ignore[reportUnusedFunction]

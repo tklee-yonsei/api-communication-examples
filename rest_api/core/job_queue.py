@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional, Protocol
+from typing import Any, Awaitable, Callable, Optional, Protocol
 
 from rest_api.core.jobs.types import JobResult, BaseError
+
+# Job 완료 시 호출될 콜백 타입
+OnCompleteCallback = Callable[[str], Awaitable[None]]
 
 
 class JobHandler(Protocol):
@@ -27,11 +30,13 @@ class Job:
         job_type: str,
         handler: type[JobHandler],  # 핸들러 클래스만 받음
         store: dict[str, Any],  # params는 store[job_id].params에서 가져옴
+        on_complete: Optional[OnCompleteCallback] = None,  # 완료 콜백
     ) -> None:
         self.job_id = job_id
         self.job_type = job_type
         self.handler = handler
         self.store = store  # 결과를 저장할 공유 스토어
+        self.on_complete = on_complete  # 완료 시 호출될 콜백
 
     async def execute(self) -> None:
         """작업을 비동기로 실행하고 결과를 store에 저장합니다."""
@@ -61,12 +66,31 @@ class Job:
                     job_payload.result = result
 
             logger.info(f"Job {self.job_id} completed successfully")
+
+            # 완료 콜백 호출
+            if self.on_complete is not None:
+                try:
+                    await self.on_complete(self.job_id)
+                except Exception as cb_err:
+                    logger.warning(
+                        f"Job {self.job_id} on_complete callback error: {cb_err}"
+                    )
+
         except Exception as e:
             logger.error(f"Job {self.job_id} failed: {e}")
             if self.job_id in self.store:
                 job_payload = self.store[self.job_id]
                 job_payload.status = "failed"
                 job_payload.result = BaseError(error=str(e))
+
+            # 실패 시에도 콜백 호출 (상태 업데이트 알림)
+            if self.on_complete is not None:
+                try:
+                    await self.on_complete(self.job_id)
+                except Exception as cb_err:
+                    logger.warning(
+                        f"Job {self.job_id} on_complete callback error: {cb_err}"
+                    )
 
 
 class JobQueue:
