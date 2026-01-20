@@ -1,0 +1,28 @@
+FROM python:3.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# pyproject.toml 복사
+COPY pyproject.toml /app/
+
+# 소스 코드는 볼륨 마운트로 제공되므로 빈 패키지 디렉토리 생성
+# (pip install . 이 패키지를 찾을 수 있도록)
+RUN mkdir -p /app/communication /app/rest_api /app/communication_ui && \
+    touch /app/communication/__init__.py && \
+    touch /app/rest_api/__init__.py && \
+    touch /app/communication_ui/__init__.py
+
+# pyproject.toml 기반 의존성 설치
+RUN pip install --no-cache-dir .
+
+EXPOSE 8080
+
+CMD ["uvicorn", "rest_api.server:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080", "--reload"]

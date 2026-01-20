@@ -14,27 +14,24 @@ RUN apt-get update && apt-get install -y \
 # pip 업그레이드
 RUN pip install --no-cache-dir --upgrade pip
 
-# 코드 품질 도구 + 타입 스텁
+# 코드 품질 도구
 RUN pip install --no-cache-dir \
     black \
     pylint \
     pytest \
-    types-requests
+    pytest-asyncio
 
-# API 통신 예제용 패키지
+# 추가 통신 프로토콜용 패키지 (gRPC, WebSocket, Message Queue)
 RUN pip install --no-cache-dir \
-    # REST API
-    flask \
-    requests \
-    # gRPC
     grpcio \
     grpcio-tools \
-    # WebSocket
     flask-socketio \
     "python-socketio[client]" \
-    # Message Queue
     redis \
     pika
 
 # 작업 디렉토리 설정
 WORKDIR /workspace
+
+# pyproject.toml 복사 후 의존성 설치 (postCreateCommand에서 처리하도록 변경 가능)
+# 개발 환경에서는 볼륨 마운트 후 설치하는 것이 더 유연함

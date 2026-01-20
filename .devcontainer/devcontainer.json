@@ -32,5 +32,5 @@
         }
     },
     "remoteUser": "root",
-    "postCreateCommand": "echo '개발 환경 준비 완료! docker-compose로 테스트 환경을 실행하세요.'"
+    "postCreateCommand": "pip install -e . && echo '개발 환경 준비 완료! docker-compose로 테스트 환경을 실행하세요.'"
 }

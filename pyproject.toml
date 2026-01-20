@@ -1,14 +1,25 @@
+[build-system]
+requires = ["setuptools>=80.9.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "api-communication-examples"
 version = "0.1.0"
 description = "REST/gRPC/WebSocket/Message Queue comparison playground."
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
-  "flask>=3.0",
-  "requests>=2.32",
-  "werkzeug>=3.0",
-  "types-requests>=2.32.0.20241016",
+  "flask==3.1.2",
+  "fastapi==0.128.0",
+  "uvicorn[standard]==0.40.0",
+  "httpx==0.28.1",
+  "requests==2.32.5",
+  "werkzeug==3.1.5",
+  "types-requests==2.32.4.20260107",
 ]
+
+# 패키지 자동 검색 설정 (다중 패키지 프로젝트)
+[tool.setuptools.packages.find]
+include = ["communication*", "communication_ui*", "rest_api*"]
 
 [tool.black]
 line-length = 88
@@ -32,6 +43,7 @@ pythonVersion = "3.14"
 typeCheckingMode = "strict"
 reportUnusedVariable = "warning"
 reportUnusedImport = "warning"
+reportUnusedFunction = "warning"
 
 # pytest: 테스트 프레임워크
 [tool.pytest.ini_options]

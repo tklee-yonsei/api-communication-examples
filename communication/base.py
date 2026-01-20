@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Optional, TypeAlias
+from typing import Literal, Optional, TypeAlias
 from types import TracebackType
 
 
 JobId: TypeAlias = str
-JobParams: TypeAlias = Mapping[str, Any]
+JobParams: TypeAlias = dict[str, object]
 JobStatus = Literal["pending", "running", "done", "failed", "error"]
 
 
