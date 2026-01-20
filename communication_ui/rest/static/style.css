@@ -131,3 +131,249 @@ button.ghost {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* ==========================================
+   Job 모니터링 스타일
+   ========================================== */
+
+.monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.monitor-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.monitor-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 상태 배지 */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge.running {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge.done {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge.failed,
+.badge.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* WebSocket 상태 */
+.ws-status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ws-status.connected {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.ws-status.disconnected {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.ws-status.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* 작은 버튼 */
+button.small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* Job 테이블 */
+.job-table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.job-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.job-table th,
+.job-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.job-table th {
+  background: #f9fafb;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.job-table tbody tr:hover {
+  background: #f3f4f6;
+  cursor: pointer;
+}
+
+.job-table .empty-row td {
+  text-align: center;
+  color: #9ca3af;
+  padding: 24px;
+}
+
+.job-table .job-id {
+  font-family: monospace;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.job-table .job-result {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* 차트 컨테이너 */
+.charts-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.chart-box {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fafafa;
+}
+
+.chart-box h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.chart {
+  width: 100%;
+  height: 200px;
+}
+
+/* 모달 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  box-shadow: none;
+  padding: 4px 8px;
+}
+
+.modal-close:hover {
+  color: #1f2937;
+  transform: none;
+  box-shadow: none;
+}
+
+.modal-content .output {
+  margin: 16px;
+  flex: 1;
+  overflow-y: auto;
+}

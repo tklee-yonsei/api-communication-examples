@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Communication Playground (REST)</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <!-- ECharts CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </head>
 
 <body>
@@ -77,6 +79,69 @@
       </div>
       <pre id="statusResult" class="output">조회 결과가 여기 표시됩니다.</pre>
     </section>
+
+    <!-- Job 모니터링 섹션 -->
+    <section class="card">
+      <h2>실시간 Job 모니터링</h2>
+      <div class="monitor-header">
+        <div class="monitor-stats">
+          <span class="stat"><span class="badge pending">대기</span> <span id="countPending">0</span></span>
+          <span class="stat"><span class="badge running">실행중</span> <span id="countRunning">0</span></span>
+          <span class="stat"><span class="badge done">완료</span> <span id="countDone">0</span></span>
+          <span class="stat"><span class="badge failed">실패</span> <span id="countFailed">0</span></span>
+          <span class="stat">총 <strong id="countTotal">0</strong>개</span>
+        </div>
+        <div class="monitor-actions">
+          <span id="wsStatus" class="ws-status disconnected">연결 끊김</span>
+          <button id="wsConnect" class="small">연결</button>
+        </div>
+      </div>
+
+      <div class="job-table-container">
+        <table class="job-table" id="jobTable">
+          <thead>
+            <tr>
+              <th>상태</th>
+              <th>타입</th>
+              <th>ID</th>
+              <th>결과</th>
+            </tr>
+          </thead>
+          <tbody id="jobTableBody">
+            <tr class="empty-row">
+              <td colspan="4">WebSocket 연결 후 Job이 표시됩니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 실시간 그래프 섹션 -->
+    <section class="card">
+      <h2>실시간 통계</h2>
+      <div class="charts-container">
+        <div class="chart-box">
+          <h3>상태별 Job 분포</h3>
+          <div id="statusChart" class="chart"></div>
+        </div>
+        <div class="chart-box">
+          <h3>시간별 처리량</h3>
+          <div id="throughputChart" class="chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Job 상세 모달 -->
+    <div id="jobModal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Job 상세 정보</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <pre id="jobModalBody" class="output"></pre>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -148,6 +213,281 @@
         resultBox.textContent = `실패: ${err}`;
       }
     }
+
+    // ==========================================
+    // 실시간 Job 모니터링
+    // ==========================================
+
+    // Job 저장소
+    const jobs = new Map();
+    let ws = null;
+
+    // 처리량 추적 (시간별)
+    const throughputHistory = [];
+    const MAX_HISTORY = 30; // 최근 30초
+    let lastDoneCount = 0;
+
+    // DOM 요소
+    const wsConnectBtn = document.getElementById("wsConnect");
+    const wsStatusEl = document.getElementById("wsStatus");
+    const jobTableBody = document.getElementById("jobTableBody");
+    const jobModal = document.getElementById("jobModal");
+    const jobModalBody = document.getElementById("jobModalBody");
+
+    // 통계 요소
+    const countPending = document.getElementById("countPending");
+    const countRunning = document.getElementById("countRunning");
+    const countDone = document.getElementById("countDone");
+    const countFailed = document.getElementById("countFailed");
+    const countTotal = document.getElementById("countTotal");
+
+    // ECharts 인스턴스
+    let statusChart = null;
+    let throughputChart = null;
+
+    // 차트 초기화
+    function initCharts() {
+      statusChart = echarts.init(document.getElementById("statusChart"));
+      throughputChart = echarts.init(document.getElementById("throughputChart"));
+
+      // 상태별 분포 차트 (도넛)
+      statusChart.setOption({
+        tooltip: { trigger: "item" },
+        legend: { bottom: 0 },
+        series: [{
+          type: "pie",
+          radius: ["40%", "70%"],
+          label: { show: false },
+          data: [
+            { value: 0, name: "대기", itemStyle: { color: "#f59e0b" } },
+            { value: 0, name: "실행중", itemStyle: { color: "#3b82f6" } },
+            { value: 0, name: "완료", itemStyle: { color: "#10b981" } },
+            { value: 0, name: "실패", itemStyle: { color: "#ef4444" } },
+          ]
+        }]
+      });
+
+      // 처리량 차트 (라인)
+      throughputChart.setOption({
+        tooltip: { trigger: "axis" },
+        xAxis: {
+          type: "category",
+          data: [],
+          axisLabel: { show: false }
+        },
+        yAxis: {
+          type: "value",
+          name: "jobs/sec",
+          minInterval: 1
+        },
+        series: [{
+          type: "line",
+          smooth: true,
+          data: [],
+          areaStyle: { opacity: 0.3 },
+          itemStyle: { color: "#6366f1" }
+        }]
+      });
+    }
+
+    // 통계 업데이트
+    function updateStats() {
+      let pending = 0, running = 0, done = 0, failed = 0;
+
+      jobs.forEach(job => {
+        switch (job.status) {
+          case "pending": pending++; break;
+          case "running": running++; break;
+          case "done": done++; break;
+          case "failed": case "error": failed++; break;
+        }
+      });
+
+      countPending.textContent = pending;
+      countRunning.textContent = running;
+      countDone.textContent = done;
+      countFailed.textContent = failed;
+      countTotal.textContent = jobs.size;
+
+      // 차트 업데이트
+      if (statusChart) {
+        statusChart.setOption({
+          series: [{
+            data: [
+              { value: pending, name: "대기", itemStyle: { color: "#f59e0b" } },
+              { value: running, name: "실행중", itemStyle: { color: "#3b82f6" } },
+              { value: done, name: "완료", itemStyle: { color: "#10b981" } },
+              { value: failed, name: "실패", itemStyle: { color: "#ef4444" } },
+            ]
+          }]
+        });
+      }
+
+      return { pending, running, done, failed };
+    }
+
+    // 처리량 업데이트 (1초마다)
+    function updateThroughput() {
+      const stats = updateStats();
+      const newDone = stats.done - lastDoneCount;
+      lastDoneCount = stats.done;
+
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString("ko-KR", { hour12: false });
+
+      throughputHistory.push({ time: timeLabel, value: Math.max(0, newDone) });
+      if (throughputHistory.length > MAX_HISTORY) {
+        throughputHistory.shift();
+      }
+
+      if (throughputChart) {
+        throughputChart.setOption({
+          xAxis: { data: throughputHistory.map(h => h.time) },
+          series: [{ data: throughputHistory.map(h => h.value) }]
+        });
+      }
+    }
+
+    // 테이블 렌더링
+    function renderTable() {
+      if (jobs.size === 0) {
+        jobTableBody.innerHTML = '<tr class="empty-row"><td colspan="4">Job이 없습니다.</td></tr>';
+        return;
+      }
+
+      // 최신순 정렬 (ID 기준, 역순)
+      const sortedJobs = Array.from(jobs.values()).reverse().slice(0, 50);
+
+      jobTableBody.innerHTML = sortedJobs.map(job => {
+        const statusClass = job.status === "error" ? "failed" : job.status;
+        const resultPreview = job.result
+          ? (typeof job.result === "object" ? JSON.stringify(job.result).slice(0, 50) + "..." : String(job.result).slice(0, 50))
+          : "-";
+        return `
+          <tr class="job-row" data-job-id="${job.id}">
+            <td><span class="badge ${statusClass}">${job.status}</span></td>
+            <td>${job.type || "-"}</td>
+            <td class="job-id">${job.id.slice(0, 8)}...</td>
+            <td class="job-result">${resultPreview}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Job 클릭 시 모달 표시
+    jobTableBody.addEventListener("click", (e) => {
+      const row = e.target.closest(".job-row");
+      if (!row) return;
+
+      const jobId = row.dataset.jobId;
+      const job = jobs.get(jobId);
+      if (!job) return;
+
+      jobModalBody.textContent = JSON.stringify(job, null, 2);
+      jobModal.classList.remove("hidden");
+    });
+
+    // 모달 닫기
+    jobModal.querySelector(".modal-close").addEventListener("click", () => {
+      jobModal.classList.add("hidden");
+    });
+    jobModal.querySelector(".modal-backdrop").addEventListener("click", () => {
+      jobModal.classList.add("hidden");
+    });
+
+    // WebSocket 연결
+    function connectWebSocket() {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws/jobs?base_url=${encodeURIComponent(document.getElementById("baseUrl").value)}`;
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        wsStatusEl.textContent = "연결됨";
+        wsStatusEl.className = "ws-status connected";
+        wsConnectBtn.textContent = "연결 해제";
+      };
+
+      ws.onclose = () => {
+        wsStatusEl.textContent = "연결 끊김";
+        wsStatusEl.className = "ws-status disconnected";
+        wsConnectBtn.textContent = "연결";
+        ws = null;
+
+        // 3초 후 자동 재연결 시도
+        setTimeout(() => {
+          if (!ws) {
+            wsStatusEl.textContent = "재연결 중...";
+            connectWebSocket();
+          }
+        }, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket error:", err);
+        wsStatusEl.textContent = "오류";
+        wsStatusEl.className = "ws-status error";
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+
+          switch (msg.type) {
+            case "init":
+              // 초기 Job 목록
+              jobs.clear();
+              (msg.jobs || []).forEach(job => jobs.set(job.id, job));
+              lastDoneCount = Array.from(jobs.values()).filter(j => j.status === "done").length;
+              break;
+
+            case "created":
+              // 새 Job 생성
+              if (msg.job) jobs.set(msg.job.id, msg.job);
+              break;
+
+            case "update":
+              // Job 상태 업데이트
+              if (msg.job) jobs.set(msg.job.id, msg.job);
+              break;
+
+            case "ping":
+              // ping 응답
+              ws.send(JSON.stringify({ type: "pong" }));
+              return;
+          }
+
+          renderTable();
+          updateStats();
+        } catch (err) {
+          console.error("Failed to parse WebSocket message:", err);
+        }
+      };
+    }
+
+    // 연결 버튼 이벤트
+    wsConnectBtn.addEventListener("click", () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      } else {
+        connectWebSocket();
+      }
+    });
+
+    // 초기화
+    initCharts();
+
+    // 페이지 로드 시 자동 연결
+    connectWebSocket();
+
+    // 1초마다 처리량 업데이트
+    setInterval(updateThroughput, 1000);
+
+    // 창 크기 변경 시 차트 리사이즈
+    window.addEventListener("resize", () => {
+      statusChart?.resize();
+      throughputChart?.resize();
+    });
   </script>
 </body>
 
