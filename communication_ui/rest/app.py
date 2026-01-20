@@ -9,9 +9,6 @@ from typing import cast
 from flask import Flask, Response, jsonify, make_response, render_template, request
 from requests import Session
 
-from communication.base import JobRecord
-from rest_api.client import RestJobClient
-
 # Docker 네트워크 내부: rest-api:8080
 # devcontainer/로컬: host.docker.internal:8080 또는 localhost:8080
 DEFAULT_BASE_URL = os.getenv("REST_API_BASE_URL", "http://host.docker.internal:8080")
@@ -60,6 +57,7 @@ def create_app() -> Flask:
         duration = time.perf_counter() - started_at
 
         sample_ids = [item["id"] for item in successes[:20] if "id" in item]
+        sample_results = [item["result"] for item in successes[:20] if "result" in item]
         sample_failures = failures[:10]
 
         return jsonify(
@@ -74,6 +72,7 @@ def create_app() -> Flask:
                 "success": len(successes),
                 "failure": len(failures),
                 "sample_job_ids": sample_ids,
+                "sample_results": sample_results,
                 "sample_failures": sample_failures,
             }
         )
@@ -83,12 +82,18 @@ def create_app() -> Flask:
         job_id: str,
     ) -> Response:
         base_url = str(request.args.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
-        with RestJobClient(base_url) as client:
-            try:
-                record = client.get_job(job_id)
-            except Exception as exc:  # pragma: no cover - 사용자 입력 예외만
-                return make_response(jsonify({"error": str(exc)}), 404)
-        return jsonify(_record_to_dict(record))
+        # REST API를 직접 호출하여 result 필드를 포함한 전체 응답 반환
+        session = Session()
+        try:
+            resp = session.get(f"{base_url}/jobs/{job_id}", timeout=10)
+            if resp.status_code == 404:
+                return make_response(jsonify({"error": f"Job {job_id} not found"}), 404)
+            resp.raise_for_status()
+            return jsonify(resp.json())
+        except Exception as exc:  # pragma: no cover - 네트워크/서버 오류만
+            return make_response(jsonify({"error": str(exc)}), 500)
+        finally:
+            session.close()
 
     return app
 
@@ -202,15 +207,6 @@ def _create_single(
         return False, {"error": str(exc)}
     finally:
         session.close()
-
-
-def _record_to_dict(record: JobRecord) -> dict[str, object]:
-    return {
-        "id": record.id,
-        "type": record.type,
-        "params": record.params,
-        "status": record.status,
-    }
 
 
 if __name__ == "__main__":
