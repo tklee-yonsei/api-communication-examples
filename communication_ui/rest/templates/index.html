@@ -17,6 +17,284 @@
       <p>REST/gRPC 엔드포인트에 대량 요청(1/100/10000)을 보내고 속도/정확도를 확인하세요.</p>
     </header>
 
+    <!-- 교육 콘텐츠 토글 버튼 -->
+    <div class="edu-toggle">
+      <button id="toggleEdu" class="ghost">
+        <span class="edu-icon">📚</span> API 통신 방식 알아보기
+        <span class="toggle-arrow">▼</span>
+      </button>
+    </div>
+
+    <!-- 교육 콘텐츠 섹션 -->
+    <section id="eduSection" class="edu-section hidden">
+      <!-- REST vs gRPC 비교 카드 -->
+      <div class="edu-comparison">
+        <div class="comparison-card rest-card">
+          <div class="card-header">
+            <h3>REST API</h3>
+            <span class="protocol-badge http">HTTP/1.1</span>
+          </div>
+          <div class="card-body">
+            <div class="feature-list">
+              <div class="feature">
+                <span class="feature-icon">📝</span>
+                <div>
+                  <strong>텍스트 기반 (JSON)</strong>
+                  <p>사람이 읽기 쉬운 형식</p>
+                </div>
+              </div>
+              <div class="feature">
+                <span class="feature-icon">🌐</span>
+                <div>
+                  <strong>범용성</strong>
+                  <p>브라우저, curl 등 어디서나 사용</p>
+                </div>
+              </div>
+              <div class="feature">
+                <span class="feature-icon">🔗</span>
+                <div>
+                  <strong>리소스 중심</strong>
+                  <p>URL로 리소스를 표현</p>
+                </div>
+              </div>
+            </div>
+            <div class="example-box">
+              <code>POST /echo</code>
+              <pre>{ "message": "hello" }</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="vs-divider">
+          <span>VS</span>
+        </div>
+
+        <div class="comparison-card grpc-card">
+          <div class="card-header">
+            <h3>gRPC</h3>
+            <span class="protocol-badge http2">HTTP/2</span>
+          </div>
+          <div class="card-body">
+            <div class="feature-list">
+              <div class="feature">
+                <span class="feature-icon">⚡</span>
+                <div>
+                  <strong>바이너리 (Protobuf)</strong>
+                  <p>작고 빠른 직렬화</p>
+                </div>
+              </div>
+              <div class="feature">
+                <span class="feature-icon">🔄</span>
+                <div>
+                  <strong>양방향 스트리밍</strong>
+                  <p>실시간 데이터 전송 가능</p>
+                </div>
+              </div>
+              <div class="feature">
+                <span class="feature-icon">📋</span>
+                <div>
+                  <strong>스키마 필수</strong>
+                  <p>.proto 파일로 계약 정의</p>
+                </div>
+              </div>
+            </div>
+            <div class="example-box">
+              <code>JobService.CreateJob()</code>
+              <pre>message: "hello"</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 동작 방식 애니메이션 -->
+      <div class="edu-card">
+        <h3>요청 흐름 시각화</h3>
+        <div class="flow-controls">
+          <button id="playRestFlow" class="small">REST 요청 보기</button>
+          <button id="playGrpcFlow" class="small">gRPC 요청 보기</button>
+          <button id="playCompareFlow" class="small">동시 비교</button>
+        </div>
+        
+        <div class="flow-diagram">
+          <!-- 클라이언트 -->
+          <div class="flow-node client-node">
+            <div class="node-icon">💻</div>
+            <div class="node-label">Client</div>
+          </div>
+
+          <!-- REST 경로 -->
+          <div class="flow-path rest-path">
+            <div class="path-line">
+              <div class="packet rest-packet" id="restPacket"></div>
+            </div>
+            <div class="path-label">REST (JSON over HTTP/1.1)</div>
+            <div class="path-detail" id="restDetail"></div>
+          </div>
+
+          <!-- gRPC 경로 -->
+          <div class="flow-path grpc-path">
+            <div class="path-line">
+              <div class="packet grpc-packet" id="grpcPacket"></div>
+            </div>
+            <div class="path-label">gRPC (Protobuf over HTTP/2)</div>
+            <div class="path-detail" id="grpcDetail"></div>
+          </div>
+
+          <!-- 서버 -->
+          <div class="flow-node server-node">
+            <div class="node-icon">🖥️</div>
+            <div class="node-label">Server</div>
+          </div>
+        </div>
+
+        <div class="flow-stats" id="flowStats">
+          <div class="stat-item">
+            <span class="stat-label">REST 페이로드</span>
+            <span class="stat-value" id="restPayloadSize">~50 bytes</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">gRPC 페이로드</span>
+            <span class="stat-value" id="grpcPayloadSize">~15 bytes</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">크기 절감</span>
+            <span class="stat-value highlight" id="sizeReduction">~70%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 언제 무엇을 사용? -->
+      <div class="edu-card">
+        <h3>언제 무엇을 사용할까?</h3>
+        <div class="use-cases">
+          <div class="use-case rest-use">
+            <h4>REST API 추천</h4>
+            <ul>
+              <li>🌐 외부 API, 웹 브라우저 클라이언트</li>
+              <li>📱 모바일 앱, 다양한 플랫폼</li>
+              <li>🔍 디버깅이 쉬워야 할 때</li>
+              <li>📖 API 문서화가 중요할 때</li>
+            </ul>
+          </div>
+          <div class="use-case grpc-use">
+            <h4>gRPC 추천</h4>
+            <ul>
+              <li>⚡ 내부 마이크로서비스 간 통신</li>
+              <li>📊 대용량 데이터 스트리밍</li>
+              <li>🔒 강타입 계약이 필요할 때</li>
+              <li>🚀 최대 성능이 필요할 때</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Job 처리 과정 시각화 -->
+      <div class="edu-card">
+        <h3>Job 처리 과정 시각화</h3>
+        <div class="job-flow-controls">
+          <button id="playSyncFlow" class="small">동기 Job (echo, calc)</button>
+          <button id="playAsyncFlow" class="small">비동기 Job (hash, fib)</button>
+          <button id="playBatchFlow" class="small">대량 요청 시뮬레이션</button>
+        </div>
+
+        <!-- 시각화 다이어그램 -->
+        <div class="job-visual-diagram">
+          <!-- 클라이언트 -->
+          <div class="job-visual-node client-side">
+            <div class="node-box">
+              <div class="node-icon">💻</div>
+              <div class="node-title">Client</div>
+            </div>
+            <div class="outgoing-jobs" id="outgoingJobs"></div>
+          </div>
+
+          <!-- 화살표 -->
+          <div class="job-visual-arrow">
+            <div class="arrow-line">
+              <div class="arrow-label" id="requestLabel">요청</div>
+            </div>
+          </div>
+
+          <!-- 서버 + 큐 -->
+          <div class="job-visual-node server-side">
+            <div class="server-container">
+              <div class="node-box server-box">
+                <div class="node-icon">🖥️</div>
+                <div class="node-title">Server</div>
+              </div>
+              
+              <!-- 작업 큐 -->
+              <div class="job-queue-container">
+                <div class="queue-label">Job Queue</div>
+                <div class="job-queue" id="jobQueue">
+                  <div class="queue-slot" id="slot0"></div>
+                  <div class="queue-slot" id="slot1"></div>
+                  <div class="queue-slot" id="slot2"></div>
+                  <div class="queue-slot" id="slot3"></div>
+                  <div class="queue-slot" id="slot4"></div>
+                </div>
+              </div>
+
+              <!-- 워커 -->
+              <div class="worker-container">
+                <div class="worker-label">Worker</div>
+                <div class="worker-box" id="workerBox">
+                  <div class="worker-status" id="workerStatus">대기 중</div>
+                  <div class="worker-progress" id="workerProgress"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 화살표 (응답) -->
+          <div class="job-visual-arrow reverse">
+            <div class="arrow-line">
+              <div class="arrow-label" id="responseLabel">응답</div>
+            </div>
+          </div>
+
+          <!-- 결과 -->
+          <div class="job-visual-node result-side">
+            <div class="node-box result-box">
+              <div class="node-icon">✅</div>
+              <div class="node-title">Result</div>
+            </div>
+            <div class="completed-jobs" id="completedJobs"></div>
+          </div>
+        </div>
+
+        <!-- 상태 표시 -->
+        <div class="job-visual-status">
+          <div class="status-item">
+            <span class="status-dot pending"></span>
+            <span>대기 중: <strong id="pendingCount">0</strong></span>
+          </div>
+          <div class="status-item">
+            <span class="status-dot processing"></span>
+            <span>처리 중: <strong id="processingCount">0</strong></span>
+          </div>
+          <div class="status-item">
+            <span class="status-dot completed"></span>
+            <span>완료: <strong id="completedCount">0</strong></span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">모드:</span>
+            <strong id="currentMode">-</strong>
+          </div>
+        </div>
+
+        <!-- 모드 설명 -->
+        <div class="job-mode-info" id="jobModeInfo">
+          <div class="mode-box sync-mode">
+            <strong>동기 모드</strong>: 요청 → 즉시 처리 → 결과 반환 (큐 미사용)
+          </div>
+          <div class="mode-box async-mode">
+            <strong>비동기 모드</strong>: 요청 → 큐 등록 → 순차 처리 → 폴링으로 결과 조회
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 탭 네비게이션 -->
     <nav class="tabs">
       <button class="tab active" data-tab="rest">REST API</button>
@@ -620,6 +898,341 @@
     window.addEventListener("resize", () => {
       statusChart?.resize();
       throughputChart?.resize();
+    });
+
+    // ==========================================
+    // 교육 콘텐츠 토글 및 애니메이션
+    // ==========================================
+
+    const toggleEduBtn = document.getElementById("toggleEdu");
+    const eduSection = document.getElementById("eduSection");
+
+    toggleEduBtn.addEventListener("click", () => {
+      toggleEduBtn.classList.toggle("active");
+      eduSection.classList.toggle("hidden");
+    });
+
+    // 패킷 애니메이션 요소
+    const restPacket = document.getElementById("restPacket");
+    const grpcPacket = document.getElementById("grpcPacket");
+    const restDetail = document.getElementById("restDetail");
+    const grpcDetail = document.getElementById("grpcDetail");
+
+    // REST 요청 애니메이션
+    document.getElementById("playRestFlow").addEventListener("click", () => {
+      resetPackets();
+      restDetail.textContent = "JSON: { \"message\": \"hello\" }";
+      restPacket.classList.add("animate");
+      
+      setTimeout(() => {
+        restDetail.textContent = "응답: { \"result\": \"hello\" }";
+      }, 750);
+      
+      setTimeout(() => {
+        restPacket.classList.remove("animate");
+        restDetail.textContent = "";
+      }, 1500);
+    });
+
+    // gRPC 요청 애니메이션
+    document.getElementById("playGrpcFlow").addEventListener("click", () => {
+      resetPackets();
+      grpcDetail.textContent = "Protobuf: 0x0a05 68656c6c6f";
+      grpcPacket.classList.add("animate");
+      
+      setTimeout(() => {
+        grpcDetail.textContent = "응답: 0x0a05 68656c6c6f";
+      }, 750);
+      
+      setTimeout(() => {
+        grpcPacket.classList.remove("animate");
+        grpcDetail.textContent = "";
+      }, 1500);
+    });
+
+    // 동시 비교 애니메이션
+    document.getElementById("playCompareFlow").addEventListener("click", () => {
+      resetPackets();
+      
+      // REST 시작 (느림)
+      restDetail.textContent = "JSON 직렬화...";
+      setTimeout(() => {
+        restPacket.classList.add("animate");
+        restDetail.textContent = "전송 중...";
+      }, 200);
+      
+      // gRPC 시작 (빠름)
+      grpcDetail.textContent = "Protobuf 직렬화";
+      grpcPacket.classList.add("animate");
+      
+      // gRPC 완료
+      setTimeout(() => {
+        grpcDetail.textContent = "완료! (더 빠름)";
+        grpcPacket.classList.remove("animate");
+      }, 1200);
+      
+      // REST 완료
+      setTimeout(() => {
+        restDetail.textContent = "완료";
+        restPacket.classList.remove("animate");
+      }, 1700);
+      
+      // 초기화
+      setTimeout(() => {
+        restDetail.textContent = "";
+        grpcDetail.textContent = "";
+      }, 2500);
+    });
+
+    function resetPackets() {
+      restPacket.classList.remove("animate", "animate-back");
+      grpcPacket.classList.remove("animate", "animate-back");
+      restDetail.textContent = "";
+      grpcDetail.textContent = "";
+    }
+
+    // ==========================================
+    // Job 처리 과정 시각화 애니메이션
+    // ==========================================
+
+    // DOM 요소
+    const jobQueueEl = document.getElementById("jobQueue");
+    const workerBox = document.getElementById("workerBox");
+    const workerStatus = document.getElementById("workerStatus");
+    const outgoingJobs = document.getElementById("outgoingJobs");
+    const completedJobsEl = document.getElementById("completedJobs");
+    const requestLabel = document.getElementById("requestLabel");
+    const responseLabel = document.getElementById("responseLabel");
+
+    // 상태 카운터
+    const pendingCountEl = document.getElementById("pendingCount");
+    const processingCountEl = document.getElementById("processingCount");
+    const completedCountEl = document.getElementById("completedCount");
+    const currentModeEl = document.getElementById("currentMode");
+
+    // 큐 슬롯
+    const slots = [
+      document.getElementById("slot0"),
+      document.getElementById("slot1"),
+      document.getElementById("slot2"),
+      document.getElementById("slot3"),
+      document.getElementById("slot4")
+    ];
+
+    let isAnimating = false;
+    let animationQueue = [];
+
+    function resetJobVisual() {
+      isAnimating = false;
+      animationQueue = [];
+      slots.forEach(slot => {
+        slot.innerHTML = "";
+        slot.className = "queue-slot";
+      });
+      workerBox.classList.remove("active");
+      workerStatus.textContent = "대기 중";
+      outgoingJobs.innerHTML = "";
+      completedJobsEl.innerHTML = "";
+      pendingCountEl.textContent = "0";
+      processingCountEl.textContent = "0";
+      completedCountEl.textContent = "0";
+      currentModeEl.textContent = "-";
+      requestLabel.textContent = "요청";
+      responseLabel.textContent = "응답";
+    }
+
+    function updateVisualCounts(pending, processing, completed) {
+      pendingCountEl.textContent = pending;
+      processingCountEl.textContent = processing;
+      completedCountEl.textContent = completed;
+    }
+
+    // 동기 Job 애니메이션
+    document.getElementById("playSyncFlow").addEventListener("click", () => {
+      if (isAnimating) return;
+      resetJobVisual();
+      isAnimating = true;
+      currentModeEl.textContent = "동기 (Sync)";
+      requestLabel.textContent = "POST /echo";
+
+      // 1. 요청 전송 표시
+      const flyingJob = document.createElement("div");
+      flyingJob.className = "flying-job";
+      flyingJob.textContent = "1";
+      outgoingJobs.appendChild(flyingJob);
+      updateVisualCounts(0, 1, 0);
+
+      // 2. 워커가 즉시 처리 (큐 미사용)
+      setTimeout(() => {
+        flyingJob.remove();
+        workerBox.classList.add("active");
+        workerStatus.textContent = "echo 처리 중...";
+        updateVisualCounts(0, 1, 0);
+      }, 600);
+
+      // 3. 처리 완료
+      setTimeout(() => {
+        workerBox.classList.remove("active");
+        workerStatus.textContent = "대기 중";
+        responseLabel.textContent = '{ "result": "hello" }';
+        
+        const completedJob = document.createElement("div");
+        completedJob.className = "completed-job";
+        completedJob.textContent = "✓";
+        completedJobsEl.appendChild(completedJob);
+        updateVisualCounts(0, 0, 1);
+      }, 1800);
+
+      // 4. 초기화
+      setTimeout(() => {
+        isAnimating = false;
+      }, 2500);
+    });
+
+    // 비동기 Job 애니메이션
+    document.getElementById("playAsyncFlow").addEventListener("click", () => {
+      if (isAnimating) return;
+      resetJobVisual();
+      isAnimating = true;
+      currentModeEl.textContent = "비동기 (Async)";
+      requestLabel.textContent = "POST /fib_jobs";
+
+      // 1. 요청 전송
+      const flyingJob = document.createElement("div");
+      flyingJob.className = "flying-job async";
+      flyingJob.textContent = "1";
+      outgoingJobs.appendChild(flyingJob);
+
+      // 2. 큐에 등록
+      setTimeout(() => {
+        flyingJob.remove();
+        const jobItem = document.createElement("div");
+        jobItem.className = "job-item async-job";
+        jobItem.textContent = "1";
+        slots[0].appendChild(jobItem);
+        slots[0].classList.add("filled");
+        updateVisualCounts(1, 0, 0);
+        responseLabel.textContent = '{ "job_id": "abc123" }';
+      }, 600);
+
+      // 3. 워커가 큐에서 가져와서 처리
+      setTimeout(() => {
+        slots[0].classList.remove("filled");
+        slots[0].classList.add("processing");
+        const jobItem = slots[0].querySelector(".job-item");
+        if (jobItem) jobItem.classList.add("processing");
+        
+        workerBox.classList.add("active");
+        workerStatus.textContent = "fib(10) 계산 중...";
+        updateVisualCounts(0, 1, 0);
+      }, 1500);
+
+      // 4. 처리 완료
+      setTimeout(() => {
+        slots[0].innerHTML = "";
+        slots[0].className = "queue-slot";
+        workerBox.classList.remove("active");
+        workerStatus.textContent = "대기 중";
+        
+        const completedJob = document.createElement("div");
+        completedJob.className = "completed-job";
+        completedJob.textContent = "✓";
+        completedJobsEl.appendChild(completedJob);
+        updateVisualCounts(0, 0, 1);
+        responseLabel.textContent = '{ "result": 55 }';
+      }, 2700);
+
+      // 5. 초기화
+      setTimeout(() => {
+        isAnimating = false;
+      }, 3500);
+    });
+
+    // 대량 요청 시뮬레이션
+    document.getElementById("playBatchFlow").addEventListener("click", () => {
+      if (isAnimating) return;
+      resetJobVisual();
+      isAnimating = true;
+      currentModeEl.textContent = "대량 비동기";
+      requestLabel.textContent = "5개 Job 요청";
+
+      const jobCount = 5;
+      let pending = 0;
+      let processing = 0;
+      let completed = 0;
+
+      // 1. 모든 요청 전송 (빠르게)
+      for (let i = 0; i < jobCount; i++) {
+        setTimeout(() => {
+          const flyingJob = document.createElement("div");
+          flyingJob.className = "flying-job async";
+          flyingJob.textContent = String(i + 1);
+          outgoingJobs.appendChild(flyingJob);
+
+          // 큐에 등록
+          setTimeout(() => {
+            flyingJob.remove();
+            if (i < slots.length) {
+              const jobItem = document.createElement("div");
+              jobItem.className = "job-item async-job";
+              jobItem.textContent = String(i + 1);
+              jobItem.id = `queuedJob${i}`;
+              slots[i].appendChild(jobItem);
+              slots[i].classList.add("filled");
+            }
+            pending++;
+            updateVisualCounts(pending, processing, completed);
+          }, 400);
+        }, i * 150);
+      }
+
+      // 2. 순차 처리
+      const processDelay = 1200;
+      for (let i = 0; i < jobCount; i++) {
+        setTimeout(() => {
+          // 현재 Job 처리 시작
+          if (i < slots.length) {
+            slots[i].classList.remove("filled");
+            slots[i].classList.add("processing");
+            const jobItem = slots[i].querySelector(".job-item");
+            if (jobItem) jobItem.classList.add("processing");
+          }
+          
+          workerBox.classList.add("active");
+          workerStatus.textContent = `Job ${i + 1} 처리 중...`;
+          pending = Math.max(0, pending - 1);
+          processing = 1;
+          updateVisualCounts(pending, processing, completed);
+
+          // 처리 완료
+          setTimeout(() => {
+            if (i < slots.length) {
+              slots[i].innerHTML = "";
+              slots[i].className = "queue-slot";
+            }
+            
+            const completedJob = document.createElement("div");
+            completedJob.className = "completed-job";
+            completedJob.textContent = "✓";
+            completedJobsEl.appendChild(completedJob);
+            
+            completed++;
+            processing = 0;
+            updateVisualCounts(pending, processing, completed);
+            
+            if (i === jobCount - 1) {
+              workerBox.classList.remove("active");
+              workerStatus.textContent = "대기 중";
+              responseLabel.textContent = `${jobCount}개 완료!`;
+            }
+          }, 600);
+        }, 1500 + i * 700);
+      }
+
+      // 3. 초기화
+      setTimeout(() => {
+        isAnimating = false;
+      }, 1500 + jobCount * 700 + 1000);
     });
   </script>
 </body>
