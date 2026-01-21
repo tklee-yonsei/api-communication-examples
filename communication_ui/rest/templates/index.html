@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Communication Playground (REST)</title>
+  <title>Communication Playground</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   <!-- ECharts CDN -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -13,37 +13,83 @@
 <body>
   <main class="layout">
     <header>
-      <h1>Communication Playground (REST)</h1>
-      <p>REST 엔드포인트에 대량 요청(1/100/10000)을 보내고 속도/정확도를 확인하세요.</p>
+      <h1>Communication Playground</h1>
+      <p>REST/gRPC 엔드포인트에 대량 요청(1/100/10000)을 보내고 속도/정확도를 확인하세요.</p>
     </header>
 
-    <section class="card">
-      <h2>설정</h2>
-      <div class="field">
-        <label for="baseUrl">REST API Base URL</label>
-        <input id="baseUrl" type="text" value="{{ default_base_url }}" />
-        <p class="hint">devcontainer/로컬: host.docker.internal:8080. Docker 내부: rest-api:8080.</p>
-      </div>
-      <div class="grid">
+    <!-- 탭 네비게이션 -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="rest">REST API</button>
+      <button class="tab" data-tab="grpc">gRPC</button>
+    </nav>
+
+    <!-- REST 탭 내용 -->
+    <div id="rest-tab" class="tab-content active">
+      <section class="card">
+        <h2>REST 설정</h2>
         <div class="field">
-          <label for="jobType">job type</label>
-          <input id="jobType" type="text" value="echo" />
+          <label for="baseUrl">REST API Base URL</label>
+          <input id="baseUrl" type="text" value="{{ default_base_url }}" />
+          <p class="hint">devcontainer/로컬: host.docker.internal:8080. Docker 내부: rest-api:8080.</p>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="jobType">job type</label>
+            <input id="jobType" type="text" value="echo" />
+          </div>
+          <div class="field">
+            <label for="concurrency">동시 요청 수</label>
+            <input id="concurrency" type="number" value="8" min="1" max="64" />
+          </div>
         </div>
         <div class="field">
-          <label for="concurrency">동시 요청 수</label>
-          <input id="concurrency" type="number" value="8" min="1" max="64" />
+          <label for="params">params (JSON)</label>
+          <textarea id="params" rows="4">{ "message": "hello" }</textarea>
         </div>
-      </div>
-      <div class="field">
-        <label for="params">params (JSON)</label>
-        <textarea id="params" rows="4">{ "message": "hello" }</textarea>
-      </div>
-      <div class="actions">
-        <button data-count="1">1개 전송</button>
-        <button data-count="100">100개 전송</button>
-        <button data-count="10000" class="danger">10000개 전송</button>
-      </div>
-    </section>
+        <div class="actions">
+          <button data-count="1" data-protocol="rest">1개 전송</button>
+          <button data-count="100" data-protocol="rest">100개 전송</button>
+          <button data-count="10000" data-protocol="rest" class="danger">10000개 전송</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- gRPC 탭 내용 -->
+    <div id="grpc-tab" class="tab-content">
+      <section class="card">
+        <h2>gRPC 설정</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="grpcHost">gRPC Host</label>
+            <input id="grpcHost" type="text" value="{{ default_grpc_host }}" />
+          </div>
+          <div class="field">
+            <label for="grpcPort">gRPC Port</label>
+            <input id="grpcPort" type="number" value="{{ default_grpc_port }}" min="1" max="65535" />
+          </div>
+        </div>
+        <p class="hint">devcontainer/로컬: localhost:50051. Docker 내부: grpc-api-dev:50051.</p>
+        <div class="grid">
+          <div class="field">
+            <label for="grpcJobType">job type</label>
+            <input id="grpcJobType" type="text" value="echo" />
+          </div>
+          <div class="field">
+            <label for="grpcConcurrency">동시 요청 수</label>
+            <input id="grpcConcurrency" type="number" value="8" min="1" max="64" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="grpcParams">params (JSON)</label>
+          <textarea id="grpcParams" rows="4">{ "message": "hello" }</textarea>
+        </div>
+        <div class="actions">
+          <button data-count="1" data-protocol="grpc">1개 전송</button>
+          <button data-count="100" data-protocol="grpc">100개 전송</button>
+          <button data-count="10000" data-protocol="grpc" class="danger">10000개 전송</button>
+        </div>
+      </section>
+    </div>
 
     <section class="card">
       <h2>Job 타입 예시</h2>
@@ -70,8 +116,11 @@
           <input id="jobId" type="text" placeholder="생성된 job_id 입력" />
         </div>
         <div class="field">
-          <label for="baseUrlStatus">REST API Base URL</label>
-          <input id="baseUrlStatus" type="text" value="{{ default_base_url }}" />
+          <label for="statusProtocol">프로토콜</label>
+          <select id="statusProtocol">
+            <option value="rest">REST</option>
+            <option value="grpc">gRPC</option>
+          </select>
         </div>
       </div>
       <div class="actions">
@@ -80,9 +129,9 @@
       <pre id="statusResult" class="output">조회 결과가 여기 표시됩니다.</pre>
     </section>
 
-    <!-- Job 모니터링 섹션 -->
-    <section class="card">
-      <h2>실시간 Job 모니터링</h2>
+    <!-- Job 모니터링 섹션 (REST 전용) -->
+    <section class="card" id="monitorSection">
+      <h2>실시간 Job 모니터링 (REST)</h2>
       <div class="monitor-header">
         <div class="monitor-stats">
           <span class="stat"><span class="badge pending">대기</span> <span id="countPending">0</span></span>
@@ -145,6 +194,38 @@
   </main>
 
   <script>
+    // ==========================================
+    // 탭 전환
+    // ==========================================
+    const tabs = document.querySelectorAll(".tab");
+    const tabContents = document.querySelectorAll(".tab-content");
+    let currentProtocol = "rest";
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        const targetTab = tab.dataset.tab;
+        currentProtocol = targetTab;
+
+        // 탭 버튼 활성화
+        tabs.forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+
+        // 탭 내용 표시
+        tabContents.forEach(content => {
+          content.classList.remove("active");
+          if (content.id === `${targetTab}-tab`) {
+            content.classList.add("active");
+          }
+        });
+
+        // 상태 조회 프로토콜도 연동
+        document.getElementById("statusProtocol").value = targetTab;
+      });
+    });
+
+    // ==========================================
+    // 배치 요청
+    // ==========================================
     const buttons = document.querySelectorAll("button[data-count]");
     const resultBox = document.getElementById("result");
     const statusBox = document.getElementById("statusResult");
@@ -154,8 +235,12 @@
       btn.addEventListener("click", () => {
         try {
           const { type, params } = JSON.parse(btn.dataset.job || "{}");
+          // REST 탭 업데이트
           document.getElementById("jobType").value = type || "";
           document.getElementById("params").value = JSON.stringify(params || {}, null, 2);
+          // gRPC 탭도 업데이트
+          document.getElementById("grpcJobType").value = type || "";
+          document.getElementById("grpcParams").value = JSON.stringify(params || {}, null, 2);
         } catch (err) {
           console.error("failed to load example", err);
         }
@@ -165,20 +250,39 @@
     buttons.forEach((btn) => {
       btn.addEventListener("click", () => {
         const count = Number(btn.dataset.count || "1");
-        runBatch(count);
+        const protocol = btn.dataset.protocol || "rest";
+        if (protocol === "grpc") {
+          runGrpcBatch(count);
+        } else {
+          runBatch(count);
+        }
       });
     });
 
+    // REST 상태 조회
     document.getElementById("fetchStatus").addEventListener("click", async () => {
       const jobId = document.getElementById("jobId").value.trim();
-      const baseUrl = document.getElementById("baseUrlStatus").value.trim();
+      const protocol = document.getElementById("statusProtocol").value;
+
       if (!jobId) {
         statusBox.textContent = "job id를 입력하세요.";
         return;
       }
+
       statusBox.textContent = "조회 중...";
+
       try {
-        const resp = await fetch(`/api/jobs/${encodeURIComponent(jobId)}?base_url=${encodeURIComponent(baseUrl)}`);
+        let url;
+        if (protocol === "grpc") {
+          const grpcHost = document.getElementById("grpcHost").value.trim();
+          const grpcPort = document.getElementById("grpcPort").value.trim();
+          url = `/api/grpc/jobs/${encodeURIComponent(jobId)}?grpc_host=${encodeURIComponent(grpcHost)}&grpc_port=${encodeURIComponent(grpcPort)}`;
+        } else {
+          const baseUrl = document.getElementById("baseUrl").value.trim();
+          url = `/api/jobs/${encodeURIComponent(jobId)}?base_url=${encodeURIComponent(baseUrl)}`;
+        }
+
+        const resp = await fetch(url);
         const data = await resp.json();
         statusBox.textContent = JSON.stringify(data, null, 2);
       } catch (err) {
@@ -200,12 +304,41 @@
         return;
       }
 
-      resultBox.textContent = `요청 중... (${count}개)`;
+      resultBox.textContent = `REST 요청 중... (${count}개)`;
       try {
         const resp = await fetch("/api/jobs/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ base_url: baseUrl, job_type: jobType, params, count, concurrency }),
+        });
+        const data = await resp.json();
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resultBox.textContent = `실패: ${err}`;
+      }
+    }
+
+    async function runGrpcBatch(count) {
+      const grpcHost = document.getElementById("grpcHost").value.trim();
+      const grpcPort = Number(document.getElementById("grpcPort").value || "50051");
+      const jobType = document.getElementById("grpcJobType").value.trim() || "echo";
+      const concurrency = Number(document.getElementById("grpcConcurrency").value || "1");
+      const paramsText = document.getElementById("grpcParams").value;
+
+      let params;
+      try {
+        params = paramsText ? JSON.parse(paramsText) : {};
+      } catch (err) {
+        resultBox.textContent = "params JSON 파싱 오류: " + err;
+        return;
+      }
+
+      resultBox.textContent = `gRPC 요청 중... (${count}개)`;
+      try {
+        const resp = await fetch("/api/grpc/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ grpc_host: grpcHost, grpc_port: grpcPort, job_type: jobType, params, count, concurrency }),
         });
         const data = await resp.json();
         resultBox.textContent = JSON.stringify(data, null, 2);
