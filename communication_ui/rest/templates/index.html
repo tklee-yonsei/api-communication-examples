@@ -31,7 +31,7 @@
       <div class="edu-card">
         <h3>통신 방식 비교</h3>
         <p class="comparison-hint">비교할 두 가지 방식을 선택하세요</p>
-        
+
         <!-- 선택 버튼 -->
         <div class="protocol-selector">
           <button class="protocol-btn selected" data-protocol="rest">
@@ -110,7 +110,7 @@
           <button id="playRightFlow" class="small">gRPC 요청 보기</button>
           <button id="playCompareFlow" class="small">동시 비교</button>
         </div>
-        
+
         <!-- 두 개의 독립적인 흐름 다이어그램 -->
         <div class="dual-flow-container">
           <!-- 첫 번째 프로토콜 흐름 -->
@@ -227,7 +227,7 @@
                 <div class="node-icon">🖥️</div>
                 <div class="node-title">Server</div>
               </div>
-              
+
               <!-- 작업 큐 -->
               <div class="job-queue-container">
                 <div class="queue-label">Job Queue</div>
@@ -830,13 +830,8 @@
         wsConnectBtn.textContent = "연결";
         ws = null;
 
-        // 3초 후 자동 재연결 시도
-        setTimeout(() => {
-          if (!ws) {
-            wsStatusEl.textContent = "재연결 중...";
-            connectWebSocket();
-          }
-        }, 3000);
+        // 자동 재연결 비활성화 (성능 테스트를 위해)
+        // 사용자가 수동으로 "연결" 버튼을 클릭해야 함
       };
 
       ws.onerror = (err) => {
@@ -893,8 +888,9 @@
     // 초기화
     initCharts();
 
-    // 페이지 로드 시 자동 연결
-    connectWebSocket();
+    // 페이지 로드 시 WebSocket 자동 연결 비활성화 (성능 테스트를 위해)
+    // 사용자가 "연결" 버튼을 클릭하면 연결됨
+    // connectWebSocket();
 
     // 1초마다 처리량 업데이트
     setInterval(updateThroughput, 1000);
@@ -1100,7 +1096,7 @@
       // 헤더 업데이트
       document.getElementById("leftTitle").textContent = leftData.name;
       document.getElementById("rightTitle").textContent = rightData.name;
-      
+
       const leftBadge = document.getElementById("leftBadge");
       const rightBadge = document.getElementById("rightBadge");
       leftBadge.textContent = leftData.badge;
@@ -1115,7 +1111,7 @@
       // 비교 표 업데이트
       document.getElementById("tableCol1").textContent = leftData.name;
       document.getElementById("tableCol2").textContent = rightData.name;
-      
+
       const tbody = document.getElementById("comparisonTableBody");
       tbody.innerHTML = Object.keys(comparisonLabels).map(key => `
         <tr>
@@ -1205,7 +1201,7 @@
     function getComparisonNote(left, right) {
       const leftSize = parseInt(left.flow.payload.replace(/[^0-9]/g, ""));
       const rightSize = parseInt(right.flow.payload.replace(/[^0-9]/g, ""));
-      
+
       if (leftSize < rightSize) {
         const diff = Math.round((1 - leftSize / rightSize) * 100);
         return `${left.name} ~${diff}% 작음`;
@@ -1257,7 +1253,7 @@
     protocolBtns.forEach(btn => {
       btn.addEventListener("click", () => {
         const protocol = btn.dataset.protocol;
-        
+
         if (btn.classList.contains("selected")) {
           // 이미 선택된 것은 최소 2개 유지
           if (selectedProtocols.length <= 2) return;
@@ -1273,7 +1269,7 @@
           selectedProtocols.push(protocol);
           btn.classList.add("selected");
         }
-        
+
         updateComparisonUI();
       });
     });
@@ -1297,11 +1293,11 @@
       leftFlowBox.classList.add("active");
       leftDetail.textContent = `요청: ${leftData.flow.animationData}`;
       leftPacket.classList.add("animate");
-      
+
       setTimeout(() => {
         leftDetail.textContent = `응답: ${leftData.flow.responseData}`;
       }, 750);
-      
+
       setTimeout(() => {
         leftPacket.classList.remove("animate");
         leftFlowBox.classList.remove("active");
@@ -1316,11 +1312,11 @@
       rightFlowBox.classList.add("active");
       rightDetail.textContent = `요청: ${rightData.flow.animationData}`;
       rightPacket.classList.add("animate");
-      
+
       setTimeout(() => {
         rightDetail.textContent = `응답: ${rightData.flow.responseData}`;
       }, 750);
-      
+
       setTimeout(() => {
         rightPacket.classList.remove("animate");
         rightFlowBox.classList.remove("active");
@@ -1332,30 +1328,30 @@
     document.getElementById("playCompareFlow").addEventListener("click", () => {
       const leftData = protocolData[selectedProtocols[0]];
       const rightData = protocolData[selectedProtocols[1]];
-      
+
       resetPackets();
       leftFlowBox.classList.add("active");
       rightFlowBox.classList.add("active");
-      
+
       // 페이로드 크기로 속도 결정 (작을수록 빠름)
       const leftSize = parseInt(leftData.flow.payload.replace(/[^0-9]/g, ""));
       const rightSize = parseInt(rightData.flow.payload.replace(/[^0-9]/g, ""));
       const leftFaster = leftSize <= rightSize;
-      
+
       // 왼쪽 시작
       leftDetail.textContent = "직렬화 중...";
       setTimeout(() => {
         leftPacket.classList.add("animate");
         leftDetail.textContent = "전송 중...";
       }, leftFaster ? 0 : 200);
-      
+
       // 오른쪽 시작
       rightDetail.textContent = "직렬화 중...";
       setTimeout(() => {
         rightPacket.classList.add("animate");
         rightDetail.textContent = "전송 중...";
       }, leftFaster ? 200 : 0);
-      
+
       // 빠른 쪽 완료
       setTimeout(() => {
         if (leftFaster) {
@@ -1366,7 +1362,7 @@
           rightPacket.classList.remove("animate");
         }
       }, 1200);
-      
+
       // 느린 쪽 완료
       setTimeout(() => {
         if (leftFaster) {
@@ -1377,7 +1373,7 @@
           leftPacket.classList.remove("animate");
         }
       }, 1700);
-      
+
       // 초기화
       setTimeout(() => {
         leftDetail.textContent = "";
@@ -1480,7 +1476,7 @@
         workerBox.classList.remove("active");
         workerStatus.textContent = "대기 중";
         responseLabel.textContent = '{ "result": "hello" }';
-        
+
         const completedJob = document.createElement("div");
         completedJob.className = "completed-job";
         completedJob.textContent = "✓";
@@ -1526,7 +1522,7 @@
         slots[0].classList.add("processing");
         const jobItem = slots[0].querySelector(".job-item");
         if (jobItem) jobItem.classList.add("processing");
-        
+
         workerBox.classList.add("active");
         workerStatus.textContent = "fib(10) 계산 중...";
         updateVisualCounts(0, 1, 0);
@@ -1538,7 +1534,7 @@
         slots[0].className = "queue-slot";
         workerBox.classList.remove("active");
         workerStatus.textContent = "대기 중";
-        
+
         const completedJob = document.createElement("div");
         completedJob.className = "completed-job";
         completedJob.textContent = "✓";
@@ -1602,7 +1598,7 @@
             const jobItem = slots[i].querySelector(".job-item");
             if (jobItem) jobItem.classList.add("processing");
           }
-          
+
           workerBox.classList.add("active");
           workerStatus.textContent = `Job ${i + 1} 처리 중...`;
           pending = Math.max(0, pending - 1);
@@ -1615,16 +1611,16 @@
               slots[i].innerHTML = "";
               slots[i].className = "queue-slot";
             }
-            
+
             const completedJob = document.createElement("div");
             completedJob.className = "completed-job";
             completedJob.textContent = "✓";
             completedJobsEl.appendChild(completedJob);
-            
+
             completed++;
             processing = 0;
             updateVisualCounts(pending, processing, completed);
-            
+
             if (i === jobCount - 1) {
               workerBox.classList.remove("active");
               workerStatus.textContent = "대기 중";
