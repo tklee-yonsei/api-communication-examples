@@ -429,12 +429,14 @@ class JobServiceServicer(jobs_pb2_grpc.JobServiceServicer):
 class GrpcServer:
     """gRPC 서버 래퍼 클래스."""
 
-    def __init__(self, port: int = 50051) -> None:
+    def __init__(self, host: str = "[::]", port: int = 50051) -> None:
         """서버를 초기화합니다.
 
         Args:
+            host: 서버가 바인딩할 호스트 (기본값: [::] 모든 인터페이스)
             port: 서버가 수신할 포트 번호
         """
+        self.host = host
         self.port = port
         self.server: Optional[grpc.aio.Server] = None
         self.servicer = JobServiceServicer()
@@ -449,7 +451,7 @@ class GrpcServer:
             ],
         )
         jobs_pb2_grpc.add_JobServiceServicer_to_server(self.servicer, self.server)
-        self.server.add_insecure_port(f"[::]:{self.port}")
+        self.server.add_insecure_port(f"{self.host}:{self.port}")
 
         await self.server.start()
         logger.info(f"gRPC server started on port {self.port}")

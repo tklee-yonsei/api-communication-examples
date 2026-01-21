@@ -2,6 +2,7 @@
 
 이 모듈은 모든 테스트에서 공유되는 fixture들을 정의합니다:
 - REST API 서버 fixture
+- gRPC API 서버 fixture
 - 클라이언트 fixture
 - 테스트 데이터 fixture
 """
@@ -9,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 import threading
 import time
 from typing import Iterator
@@ -16,6 +18,7 @@ from typing import Iterator
 import pytest
 import uvicorn
 
+from grpc_api.client import GrpcJobClient
 from rest_api import RestJobClient, create_app
 
 
@@ -81,6 +84,75 @@ class ServerThread(threading.Thread):
         return "http://127.0.0.1:8000"
 
 
+def _find_free_port() -> int:
+    """사용 가능한 빈 포트를 찾습니다.
+
+    Returns:
+        int: 사용 가능한 포트 번호
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        s.listen(1)
+        port: int = s.getsockname()[1]
+    return port
+
+
+class GrpcServerThread(threading.Thread):
+    """gRPC 서버를 백그라운드 스레드에서 실행하는 헬퍼 클래스.
+
+    Attributes:
+        host: gRPC 서버 호스트
+        port: gRPC 서버 포트
+    """
+
+    def __init__(self, host: str = "127.0.0.1", port: int | None = None) -> None:
+        """서버 스레드를 초기화합니다.
+
+        Args:
+            host: 서버 바인딩 호스트
+            port: 서버 바인딩 포트 (None이면 자동 할당)
+        """
+        self.host = host
+        self.port = port if port is not None else _find_free_port()
+        self._stop_event = threading.Event()
+        self._started = threading.Event()
+        super().__init__(daemon=True)
+
+    def run(self) -> None:  # pragma: no cover - 스레드 실행 코드
+        """서버를 실행합니다."""
+        asyncio.run(self._serve())
+
+    async def _serve(self) -> None:
+        """비동기적으로 gRPC 서버를 실행합니다."""
+        from grpc_api.server import GrpcServer
+
+        server = GrpcServer(host=self.host, port=self.port)
+        await server.start()
+        self._started.set()
+
+        # 정지 신호를 기다림
+        while not self._stop_event.is_set():
+            await asyncio.sleep(0.1)
+
+        await server.stop()
+
+    def stop(self) -> None:
+        """서버를 중지합니다."""
+        self._stop_event.set()
+        self.join(timeout=5)
+
+    def wait_until_started(self, timeout: float = 5.0) -> bool:
+        """서버가 시작될 때까지 대기합니다.
+
+        Args:
+            timeout: 최대 대기 시간 (초)
+
+        Returns:
+            bool: 서버가 시작되었으면 True
+        """
+        return self._started.wait(timeout=timeout)
+
+
 @pytest.fixture(scope="session")
 def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
     """세션 범위의 이벤트 루프를 제공합니다.
@@ -136,3 +208,37 @@ def base_url(rest_server: ServerThread) -> str:
         str: 서버의 베이스 URL
     """
     return rest_server.base_url
+
+
+@pytest.fixture(scope="module")
+def grpc_server() -> Iterator[GrpcServerThread]:
+    """모듈 범위의 테스트용 gRPC API 서버를 제공합니다.
+
+    Yields:
+        GrpcServerThread: 실행 중인 서버 스레드
+    """
+    srv = GrpcServerThread()
+    srv.start()
+
+    # 서버가 완전히 시작될 때까지 대기
+    srv.wait_until_started(timeout=5.0)
+
+    yield srv
+    srv.stop()
+
+
+@pytest.fixture
+def grpc_client(grpc_server: GrpcServerThread) -> Iterator[GrpcJobClient]:
+    """테스트용 gRPC 클라이언트를 생성합니다.
+
+    Args:
+        grpc_server: 실행 중인 서버 fixture
+
+    Yields:
+        GrpcJobClient: 설정된 gRPC 클라이언트
+    """
+    from grpc_api.client import GrpcJobClient
+
+    client = GrpcJobClient(host=grpc_server.host, port=grpc_server.port)
+    yield client
+    client.close()
