@@ -377,3 +377,113 @@ button.small {
   flex: 1;
   overflow-y: auto;
 }
+
+/* ==========================================
+   탭 네비게이션 스타일
+   ========================================== */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: #e5e8f0;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #5a6274;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: none;
+  box-shadow: none;
+}
+
+.tab.active {
+  background: #fff;
+  color: #1f2430;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tab.active:hover {
+  transform: none;
+}
+
+/* 탭 컨텐츠 */
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Select 스타일 */
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccd2e0;
+  font-size: 14px;
+  background: #fbfcff;
+  cursor: pointer;
+}
+
+/* ==========================================
+   탭 네비게이션 스타일
+   ========================================== */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: #e5e8f0;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #5a6274;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: none;
+  box-shadow: none;
+}
+
+.tab.active {
+  background: #fff;
+  color: #1f2430;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tab.active:hover {
+  transform: none;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}

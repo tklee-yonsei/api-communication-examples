@@ -5,18 +5,17 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import cast
+from typing import Optional, cast
 
 from flask import Flask, Response, jsonify, make_response, render_template, request
-from flask_sock import Sock  # pyright: ignore[reportMissingTypeStubs]
+from flask_sock import Sock
 from requests import Session
-from simple_websocket import (
-    Server as WsServer,
-)  # pyright: ignore[reportMissingTypeStubs]
+from simple_websocket import Server as WsServer
 
 # flask-sock 타입 정의 없음 - 타입 검사 무시
 # pyright: reportUnknownMemberType=false
 
+# REST API 설정
 # Docker 네트워크 내부: rest-api:8080
 # devcontainer/로컬: host.docker.internal:8080 또는 localhost:8080
 DEFAULT_BASE_URL = os.getenv("REST_API_BASE_URL", "http://host.docker.internal:8080")
@@ -25,12 +24,17 @@ DEFAULT_WS_URL = os.getenv(
     "REST_API_WS_URL",
     DEFAULT_BASE_URL.replace("http://", "ws://").replace("https://", "wss://"),
 )
+
+# gRPC API 설정
+DEFAULT_GRPC_HOST = os.getenv("GRPC_API_HOST", "localhost")
+DEFAULT_GRPC_PORT = int(os.getenv("GRPC_API_PORT", "50051"))
+
 MAX_CONCURRENCY = 64
 MAX_COUNT = 20000
 
 
 def create_app() -> Flask:
-    """REST API 부하/정확도 테스트 UI"""
+    """REST/gRPC API 부하/정확도 테스트 UI"""
     app = Flask(
         __name__,
         static_folder="static",
@@ -51,6 +55,8 @@ def create_app() -> Flask:
         return render_template(
             "index.html",
             default_base_url=DEFAULT_BASE_URL,
+            default_grpc_host=DEFAULT_GRPC_HOST,
+            default_grpc_port=DEFAULT_GRPC_PORT,
         )
 
     @app.get("/api/jobs")
@@ -107,14 +113,15 @@ def create_app() -> Flask:
                 try:
                     while True:
                         try:
-                            data: str | bytes | None = ws.receive(
+                            data: Optional[str | bytes]
+                            data = ws.receive(  # pyright: ignore[reportUnknownVariableType]
                                 timeout=30
-                            )  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+                            )
                             if data is None:
                                 break
                             upstream.send(
-                                data
-                            )  # pyright: ignore[reportUnknownArgumentType]
+                                data  # pyright: ignore[reportUnknownArgumentType]
+                            )
                         except TimeoutError:
                             # ping 전송
                             ws.send(
@@ -186,6 +193,139 @@ def create_app() -> Flask:
             return make_response(jsonify({"error": str(exc)}), 500)
         finally:
             session.close()
+
+    # ==========================================
+    # gRPC API 프록시 엔드포인트
+    # ==========================================
+
+    @app.post("/api/grpc/batch")
+    def grpc_batch() -> Response:  # pyright: ignore[reportUnusedFunction]
+        """gRPC 서버로 대량 요청을 전송합니다."""
+        payload: dict[str, object] = request.get_json(silent=True) or {}
+        grpc_host = str(payload.get("grpc_host") or DEFAULT_GRPC_HOST)
+        grpc_port = _coerce_int(
+            payload.get("grpc_port"),
+            default=DEFAULT_GRPC_PORT,
+            minimum=1,
+            maximum=65535,
+        )
+        job_type = str(payload.get("job_type") or "echo")
+        params = _parse_params(payload.get("params"))
+        count = _coerce_int(
+            payload.get("count"), default=1, minimum=1, maximum=MAX_COUNT
+        )
+        concurrency = _coerce_int(
+            payload.get("concurrency"), default=8, minimum=1, maximum=MAX_CONCURRENCY
+        )
+
+        started_at = time.perf_counter()
+        successes, failures = _run_grpc_batch(
+            grpc_host, grpc_port, job_type, params, count, concurrency
+        )
+        duration = time.perf_counter() - started_at
+
+        sample_ids = [item["id"] for item in successes[:20] if "id" in item]
+        sample_results = [item["result"] for item in successes[:20] if "result" in item]
+        sample_failures = failures[:10]
+
+        return jsonify(
+            {
+                "grpc_host": grpc_host,
+                "grpc_port": grpc_port,
+                "job_type": job_type,
+                "params": params,
+                "requested": count,
+                "concurrency": concurrency,
+                "duration_ms": round(duration * 1000, 2),
+                "throughput_per_sec": round(count / duration, 2) if duration else None,
+                "success": len(successes),
+                "failure": len(failures),
+                "sample_job_ids": sample_ids,
+                "sample_results": sample_results,
+                "sample_failures": sample_failures,
+            }
+        )
+
+    @app.get("/api/grpc/jobs/<job_id>")
+    def grpc_get_job(  # pyright: ignore[reportUnusedFunction]
+        job_id: str,
+    ) -> Response:
+        """gRPC 서버에서 Job 상태를 조회합니다."""
+        grpc_host = str(request.args.get("grpc_host") or DEFAULT_GRPC_HOST)
+        grpc_port = _coerce_int(
+            request.args.get("grpc_port"),
+            default=DEFAULT_GRPC_PORT,
+            minimum=1,
+            maximum=65535,
+        )
+
+        try:
+            from grpc_api.client import GrpcJobClient
+
+            with GrpcJobClient(host=grpc_host, port=grpc_port) as client:
+                record = client.get_job(job_id)
+                return jsonify(
+                    {
+                        "id": record.id,
+                        "type": record.type,
+                        "status": record.status,
+                        "params": record.params,
+                    }
+                )
+        except Exception as exc:
+            error_msg = str(exc)
+            if "not found" in error_msg.lower():
+                return make_response(jsonify({"error": f"Job {job_id} not found"}), 404)
+            return make_response(jsonify({"error": error_msg}), 500)
+
+    @app.get("/api/grpc/jobs")
+    def grpc_list_jobs() -> Response:  # pyright: ignore[reportUnusedFunction]
+        """gRPC 서버에서 전체 Job 목록을 조회합니다."""
+        grpc_host = str(request.args.get("grpc_host") or DEFAULT_GRPC_HOST)
+        grpc_port = _coerce_int(
+            request.args.get("grpc_port"),
+            default=DEFAULT_GRPC_PORT,
+            minimum=1,
+            maximum=65535,
+        )
+        limit = _coerce_int(
+            request.args.get("limit"), default=50, minimum=1, maximum=1000
+        )
+
+        try:
+            from grpc_api.client import GrpcJobClient
+
+            client = GrpcJobClient(host=grpc_host, port=grpc_port)
+            try:
+                result = client.list_jobs(limit=limit)
+                return jsonify(result)
+            finally:
+                client.close()
+        except Exception as exc:
+            return make_response(jsonify({"error": str(exc)}), 500)
+
+    @app.get("/api/grpc/queue/status")
+    def grpc_queue_status() -> Response:  # pyright: ignore[reportUnusedFunction]
+        """gRPC 서버의 작업 큐 상태를 조회합니다."""
+        grpc_host = str(request.args.get("grpc_host") or DEFAULT_GRPC_HOST)
+        grpc_port = _coerce_int(
+            request.args.get("grpc_port"),
+            default=DEFAULT_GRPC_PORT,
+            minimum=1,
+            maximum=65535,
+        )
+
+        try:
+            from grpc_api.client import GrpcJobClient
+
+            client = GrpcJobClient(host=grpc_host, port=grpc_port)
+            try:
+                result = client.get_queue_status()
+                return jsonify(result)
+            finally:
+                client.close()
+        except Exception as exc:
+            return make_response(jsonify({"error": str(exc)}), 500)
 
     return app
 
@@ -299,6 +439,74 @@ def _create_single(
         return False, {"error": str(exc)}
     finally:
         session.close()
+
+
+# ==========================================
+# gRPC 배치 처리 함수
+# ==========================================
+
+
+def _run_grpc_batch(
+    grpc_host: str,
+    grpc_port: int,
+    job_type: str,
+    params: dict[str, object],
+    count: int,
+    concurrency: int,
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """gRPC 서버로 대량 요청을 전송합니다."""
+    successes: list[dict[str, object]] = []
+    failures: list[dict[str, object]] = []
+
+    max_workers = max(1, min(concurrency, count, MAX_CONCURRENCY))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_create_single_grpc, grpc_host, grpc_port, job_type, params)
+            for _ in range(count)
+        ]
+        for future in as_completed(futures):
+            ok, data = future.result()
+            if ok:
+                successes.append(data)
+            else:
+                failures.append(data)
+    return successes, failures
+
+
+def _create_single_grpc(
+    grpc_host: str,
+    grpc_port: int,
+    job_type: str,
+    params: dict[str, object],
+) -> tuple[bool, dict[str, object]]:
+    """gRPC로 단일 작업 요청을 전송합니다."""
+    try:
+        from grpc_api.client import GrpcJobClient
+
+        with GrpcJobClient(host=grpc_host, port=grpc_port) as client:
+            record = client.create_job(job_type, params)
+
+            if record.status == "done":
+                # 동기 작업: 결과가 params["result"]에 들어있음
+                result_data = record.params.get("result") if record.params else None
+                return True, {
+                    "type": record.type,
+                    "params": params,
+                    "result": result_data,
+                    "status": record.status,
+                    "mode": "sync",
+                }
+            else:
+                # 비동기 작업: job_id 반환
+                return True, {
+                    "id": record.id,
+                    "type": record.type,
+                    "params": params,
+                    "status": record.status,
+                    "mode": "async",
+                }
+    except Exception as exc:
+        return False, {"error": str(exc)}
 
 
 if __name__ == "__main__":

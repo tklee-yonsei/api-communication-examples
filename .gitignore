@@ -193,3 +193,9 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
+
+### gRPC Generated Files ###
+# Proto 컴파일로 생성된 파일 (빌드 시 자동 생성)
+grpc_api/protos/*_pb2.py
+grpc_api/protos/*_pb2.pyi
+grpc_api/protos/*_pb2_grpc.py

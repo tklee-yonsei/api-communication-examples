@@ -32,10 +32,15 @@
                 "code-runner.saveFileBeforeRun": true,
                 "code-runner.executorMap": {
                     "python": "python3 -u"
+                },
+                "protoc": {
+                    "options": [
+                        "--proto_path=${workspaceRoot}/grpc_api/protos"
+                    ]
                 }
             }
         }
     },
     "remoteUser": "root",
-    "postCreateCommand": "uv sync --all-groups --system && echo '개발 환경 준비 완료! docker-compose로 테스트 환경을 실행하세요.'"
+    "postCreateCommand": "uv pip install --system -r pyproject.toml && uv pip install --system black pylint pytest pytest-asyncio && python grpc_api/compile_proto.py && echo '개발 환경 준비 완료! docker-compose로 테스트 환경을 실행하세요.'"
 }

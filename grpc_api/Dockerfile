@@ -13,12 +13,11 @@ COPY pyproject.toml uv.lock* /app/
 COPY communication/ /app/communication
 COPY rest_api/ /app/rest_api
 COPY grpc_api/ /app/grpc_api
-COPY communication_ui/ /app/communication_ui
 
 # uv로 의존성 설치 (시스템 Python에 직접 설치)
 RUN uv pip install --system -r pyproject.toml
 
-# Proto 파일 컴파일
+# Proto 파일 컴파일 및 import 경로 수정
 RUN python -m grpc_tools.protoc \
     --proto_path=grpc_api/protos \
     --python_out=grpc_api/protos \
@@ -27,6 +26,6 @@ RUN python -m grpc_tools.protoc \
     grpc_api/protos/jobs.proto && \
     sed -i 's/import jobs_pb2 as jobs__pb2/from grpc_api.protos import jobs_pb2 as jobs__pb2/g' grpc_api/protos/jobs_pb2_grpc.py
 
-EXPOSE 3000
+EXPOSE 50051
 
-CMD ["python", "-m", "communication_ui.rest.app"]
+CMD ["python", "-m", "grpc_api.server"]

@@ -1,0 +1,172 @@
+// gRPC 작업 서비스 정의
+// REST API와 동일한 기능을 gRPC로 제공합니다.
+
+syntax = "proto3";
+
+package jobs;
+
+// ========================================
+// 공통 메시지 타입
+// ========================================
+
+message Empty {}
+
+message BaseError {
+    string error = 1;
+}
+
+// ========================================
+// Echo 작업 (동기)
+// ========================================
+
+message EchoRequest {
+    // 임의의 key-value 쌍을 허용
+    map<string, string> data = 1;
+}
+
+message EchoResponse {
+    map<string, string> echo = 1;
+}
+
+// ========================================
+// Calc 작업 (동기)
+// ========================================
+
+message CalcRequest {
+    string op = 1;  // add, sub, mul, div
+    double a = 2;
+    double b = 3;
+}
+
+message CalcResponse {
+    string op = 1;
+    double a = 2;
+    double b = 3;
+    double result = 4;
+    string error = 5;  // 에러 발생 시
+}
+
+// ========================================
+// Stats 작업 (동기)
+// ========================================
+
+message StatsRequest {
+    repeated double values = 1;
+}
+
+message StatsResponse {
+    int32 count = 1;
+    double min = 2;
+    double max = 3;
+    double sum = 4;
+    double mean = 5;
+    double median = 6;
+    string error = 7;  // 에러 발생 시
+}
+
+// ========================================
+// Hash 작업 (비동기)
+// ========================================
+
+message HashRequest {
+    // 임의의 key-value 쌍을 해시할 데이터
+    map<string, string> data = 1;
+}
+
+message HashResult {
+    string algo = 1;
+    string input = 2;
+    string digest = 3;
+}
+
+// ========================================
+// Fib 작업 (비동기)
+// ========================================
+
+message FibRequest {
+    int32 n = 1;  // 0-40 범위
+}
+
+message FibResult {
+    int32 n = 1;
+    int64 fib = 2;
+}
+
+// ========================================
+// 비동기 작업 공통 메시지
+// ========================================
+
+message JobId {
+    string id = 1;
+}
+
+message CreateJobResponse {
+    string job_id = 1;
+    string status = 2;
+}
+
+message JobStatus {
+    string id = 1;
+    string type = 2;
+    string status = 3;  // pending, running, done, failed
+    oneof result {
+        HashResult hash_result = 4;
+        FibResult fib_result = 5;
+        BaseError error = 6;
+    }
+}
+
+message ListJobsRequest {
+    int32 limit = 1;  // 기본값 50
+}
+
+message ListJobsResponse {
+    repeated JobStatus jobs = 1;
+    int32 total = 2;
+}
+
+message QueueStatusResponse {
+    int32 queue_size = 1;
+    bool is_full = 2;
+    int32 max_workers = 3;
+}
+
+// ========================================
+// gRPC 서비스 정의
+// ========================================
+
+service JobService {
+    // ======== 동기 작업 (Unary RPC) ========
+    // 요청을 받으면 즉시 결과를 반환합니다.
+    
+    // Echo: 입력을 그대로 반환
+    rpc Echo(EchoRequest) returns (EchoResponse);
+    
+    // Calc: 사칙연산 수행
+    rpc Calc(CalcRequest) returns (CalcResponse);
+    
+    // Stats: 리스트 통계 계산
+    rpc Stats(StatsRequest) returns (StatsResponse);
+    
+    // ======== 비동기 작업 (Unary RPC) ========
+    // job_id를 즉시 반환하고, GetJob으로 결과를 조회합니다.
+    
+    // CreateHashJob: 해시 작업 생성
+    rpc CreateHashJob(HashRequest) returns (CreateJobResponse);
+    
+    // CreateFibJob: 피보나치 작업 생성
+    rpc CreateFibJob(FibRequest) returns (CreateJobResponse);
+    
+    // GetJob: 작업 상태 조회
+    rpc GetJob(JobId) returns (JobStatus);
+    
+    // ListJobs: 전체 작업 목록 조회
+    rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+    
+    // GetQueueStatus: 작업 큐 상태 조회
+    rpc GetQueueStatus(Empty) returns (QueueStatusResponse);
+    
+    // ======== 스트리밍 RPC (gRPC 고유 기능) ========
+    // Server-side streaming: 작업 상태 변경을 실시간으로 스트리밍
+    rpc WatchJobs(Empty) returns (stream JobStatus);
+}
