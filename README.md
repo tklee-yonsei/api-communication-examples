@@ -1,7 +1,7 @@
 # 마이크로서비스 API 통신 예제
 
 마이크로서비스 간 통신 방식을 비교하고 실습하는 프로젝트입니다.
-현재는 **REST API** 경로의 서버/클라이언트와 이를 손쉽게 테스트하기 위한 웹 UI를 제공합니다. gRPC / WebSocket / Message Queue 버전은 이후 단계에서 추가됩니다.
+현재는 **REST API**와 **gRPC** 경로의 서버/클라이언트를 제공합니다. WebSocket / Message Queue 버전은 이후 단계에서 추가됩니다.
 
 ## 참고 글
 
@@ -11,19 +11,21 @@
 
 ## 통신 방식
 
-| 방식              | 특징                      | 사용 사례            |
-| ----------------- | ------------------------- | -------------------- |
-| **REST API**      | HTTP 기반, 요청-응답      | CRUD 작업, 외부 API  |
-| **gRPC**          | 바이너리 프로토콜, 고성능 | 내부 서비스 간 통신  |
-| **WebSocket**     | 양방향 실시간             | 모니터링, 알림       |
-| **Message Queue** | 비동기 처리               | 작업 큐, 이벤트 처리 |
+| 방식              | 특징                      | 사용 사례            | 상태     |
+| ----------------- | ------------------------- | -------------------- | -------- |
+| **REST API**      | HTTP 기반, 요청-응답      | CRUD 작업, 외부 API  | ✅ 구현됨 |
+| **gRPC**          | 바이너리 프로토콜, 고성능 | 내부 서비스 간 통신  | ✅ 구현됨 |
+| **WebSocket**     | 양방향 실시간             | 모니터링, 알림       | 🚧 예정   |
+| **Message Queue** | 비동기 처리               | 작업 큐, 이벤트 처리 | 🚧 예정   |
 
 ## 프로젝트 구조
 
 ```text
 .
-├── rest_api/          # Flask REST API 서버/클라이언트
-├── communication_ui/  # 통신 실험용 웹 UI (현재 REST 탭 제공)
+├── communication/     # 공통 인터페이스 (JobClient 등)
+├── rest_api/          # FastAPI REST API 서버/클라이언트
+├── grpc_api/          # gRPC 서버/클라이언트
+├── communication_ui/  # 통신 실험용 웹 UI
 └── docker-compose.yml # 테스트 환경 구성
 ```
 
@@ -35,16 +37,21 @@ VS Code에서 Dev Container로 열면 필요한 패키지가 자동 설치됩니
 
 ### 테스트 환경 (Docker Compose)
 
-REST 서버와 웹 UI를 함께 실행합니다:
+REST 서버, gRPC 서버, 웹 UI를 함께 실행합니다:
 
 ```bash
-docker-compose up --build -d
+# 개발 환경 (핫리로드 활성화)
+docker compose --profile dev up -d
+
+# 프로덕션 환경
+docker compose --profile prod up -d
 ```
 
-| 서비스           | 포트 | 설명                                    |
-| ---------------- | ---- | --------------------------------------- |
-| REST API         | 8080 | Flask REST 서버 (curl로 직접 호출 가능) |
-| communication-ui | 3000 | 브라우저 UI. 1/100/10000 버튼 지원      |
+| 서비스           | 포트  | 설명                                      |
+| ---------------- | ----- | ----------------------------------------- |
+| REST API         | 8080  | FastAPI REST 서버 (curl로 직접 호출 가능) |
+| gRPC API         | 50051 | gRPC 서버 (grpcurl로 호출 가능)           |
+| communication-ui | 3001  | 브라우저 UI. 1/100/10000 버튼 지원        |
 
 ### UI 사용법 (communication-ui)
 

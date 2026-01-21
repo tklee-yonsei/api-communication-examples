@@ -41,6 +41,42 @@ services:
       - app-network
 
   # ===========================================
+  # gRPC API 서버 (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
+  # ===========================================
+  grpc-api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: grpc_api/Dockerfile.dev
+    ports:
+      - "50051:50051"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./communication:/app/communication
+      - ./rest_api:/app/rest_api
+      - ./grpc_api:/app/grpc_api
+    networks:
+      - app-network
+
+  # ===========================================
+  # gRPC API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  grpc-api-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: grpc_api/Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+
+  # ===========================================
   # REST UI (개발용)
   # 볼륨 마운트로 실시간 코드 반영
   # ===========================================
@@ -53,12 +89,17 @@ services:
       - "3001:3000"
     environment:
       - REST_API_BASE_URL=http://rest-api-dev:8080
+      - GRPC_API_HOST=grpc-api-dev
+      - GRPC_API_PORT=50051
     volumes:
       - ./communication_ui:/app/communication_ui
       - ./communication:/app/communication
       - ./rest_api:/app/rest_api
+      - ./grpc_api:/app/grpc_api
     depends_on:
       rest-api-dev:
+        condition: service_started
+      grpc-api-dev:
         condition: service_started
     networks:
       - app-network
@@ -76,8 +117,12 @@ services:
       - "3001:3000"
     environment:
       - REST_API_BASE_URL=http://rest-api-prod:8080
+      - GRPC_API_HOST=grpc-api-prod
+      - GRPC_API_PORT=50051
     depends_on:
       rest-api-prod:
+        condition: service_started
+      grpc-api-prod:
         condition: service_started
     networks:
       - app-network
