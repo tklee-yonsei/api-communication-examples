@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from communication.types import Result
 from rest_api.core.jobs.base import AsyncJobHandler
 from rest_api.core.jobs.types import FibError, FibParams, FibResult
 
 
-class FibJobHandler(AsyncJobHandler[FibParams, FibResult | FibError]):
+class FibJobHandler(AsyncJobHandler[FibParams, Result[FibResult, FibError]]):
     """피보나치 작업 핸들러."""
 
-    async def execute(self, params: FibParams) -> FibResult | FibError:
+    async def execute(self, params: FibParams) -> Result[FibResult, FibError]:
         """작은 n에 대한 피보나치 수 계산 (n 최대 40)."""
         n = params.n
 

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from communication.types import Result
 from rest_api.core.jobs.base import AsyncJobHandler
 from rest_api.core.jobs.types import CalcError, CalcParams, CalcResult
 
 
-class CalcJobHandler(AsyncJobHandler[CalcParams, CalcResult | CalcError]):
+class CalcJobHandler(AsyncJobHandler[CalcParams, Result[CalcResult, CalcError]]):
     """계산 작업 핸들러."""
 
-    async def execute(self, params: CalcParams) -> CalcResult | CalcError:
+    async def execute(self, params: CalcParams) -> Result[CalcResult, CalcError]:
         """사칙연산 작업(op: add|sub|mul|div, a, b)."""
         op = params.op
         a = params.a

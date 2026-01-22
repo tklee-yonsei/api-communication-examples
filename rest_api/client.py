@@ -7,10 +7,9 @@ import requests
 from communication.base import (
     JobClient,
     JobNotFoundError,
-    JobParams,
     JobRecord,
-    JobStatus,
 )
+from communication.types import JobParams, JobStatus
 
 
 class _CreateJobResponse(TypedDict):

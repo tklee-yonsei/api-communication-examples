@@ -8,7 +8,14 @@ from pydantic import BaseModel, Field
 
 
 class BaseError(BaseModel):
-    """공통 에러 모델."""
+    """공통 에러 데이터 모델.
+
+    주의: 이것은 예외(Exception)가 아니라 에러 정보를 담는 데이터 객체입니다.
+    Result 타입에서 실패 케이스를 나타낼 때 사용됩니다.
+
+    Attributes:
+        error: 에러 메시지
+    """
 
     error: str
 
@@ -49,7 +56,10 @@ class CalcResult(BaseModel):
 
 
 class CalcError(BaseError):
-    """계산 작업 에러."""
+    """계산 작업 에러 데이터.
+
+    주의: 예외가 아니라 에러 정보를 담는 데이터 객체입니다.
+    """
 
 
 # ===== Hash Job =====
@@ -86,7 +96,10 @@ class StatsResult(BaseModel):
 
 
 class StatsError(BaseError):
-    """통계 작업 에러."""
+    """통계 작업 에러 데이터.
+
+    주의: 예외가 아니라 에러 정보를 담는 데이터 객체입니다.
+    """
 
 
 # ===== Fib Job =====
@@ -104,7 +117,10 @@ class FibResult(BaseModel):
 
 
 class FibError(BaseError):
-    """피보나치 작업 에러."""
+    """피보나치 작업 에러 데이터.
+
+    주의: 예외가 아니라 에러 정보를 담는 데이터 객체입니다.
+    """
 
 
 # ===== 통합 타입 =====
