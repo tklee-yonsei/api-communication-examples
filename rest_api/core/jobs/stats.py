@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from communication.types import Result
 from rest_api.core.jobs.base import AsyncJobHandler
 from rest_api.core.jobs.types import StatsError, StatsParams, StatsResult
 
 
-class StatsJobHandler(AsyncJobHandler[StatsParams, StatsResult | StatsError]):
+class StatsJobHandler(AsyncJobHandler[StatsParams, Result[StatsResult, StatsError]]):
     """통계 작업 핸들러."""
 
-    async def execute(self, params: StatsParams) -> StatsResult | StatsError:
+    async def execute(self, params: StatsParams) -> Result[StatsResult, StatsError]:
         """숫자 리스트 통계 작업(values: list[float])."""
         if not params.values:
             return StatsError(error="values must be an array")

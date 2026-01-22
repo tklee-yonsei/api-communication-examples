@@ -1,8 +1,4 @@
-"""gRPC 클라이언트 구현.
-
-REST API 클라이언트와 동일한 인터페이스(JobClient)를 구현하여
-통신 방식에 관계없이 동일한 방식으로 작업을 생성/조회할 수 있습니다.
-"""
+"""동기 gRPC 클라이언트 구현."""
 
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownArgumentType=false
@@ -10,8 +6,6 @@ REST API 클라이언트와 동일한 인터페이스(JobClient)를 구현하여
 
 from __future__ import annotations
 
-import uuid
-from collections.abc import AsyncGenerator
 from typing import Optional, cast
 
 import grpc
@@ -19,9 +13,16 @@ import grpc
 from communication.base import (
     JobClient,
     JobNotFoundError,
-    JobParams,
     JobRecord,
-    JobStatus,
+)
+from communication.types import JobParams, JobStatus
+from grpc_api.client.utils import (
+    create_calc_request,
+    create_echo_request,
+    create_fib_request,
+    create_hash_request,
+    create_stats_request,
+    generate_fallback_job_id,
 )
 from grpc_api.protos import jobs_pb2, jobs_pb2_grpc
 
@@ -71,10 +72,7 @@ class GrpcJobClient(JobClient):
         """
         if job_type == "echo":
             # Echo 동기 작업 - 즉시 결과 반환
-            request = jobs_pb2.EchoRequest()
-            for key, value in params.items():
-                request.data[key] = str(value)
-
+            request = create_echo_request(params)
             response = self.stub.Echo(request)
             # 결과를 params에 포함하여 반환 (동기 작업은 job_id 없음)
             result = {"echo": dict(response.echo)}
@@ -87,14 +85,7 @@ class GrpcJobClient(JobClient):
 
         elif job_type == "calc":
             # Calc 동기 작업 - 즉시 결과 반환
-            a_val = params.get("a", 0)
-            b_val = params.get("b", 0)
-            request = jobs_pb2.CalcRequest(
-                op=str(params.get("op", "add")),
-                a=float(a_val) if isinstance(a_val, (int, float, str)) else 0.0,
-                b=float(b_val) if isinstance(b_val, (int, float, str)) else 0.0,
-            )
-
+            request = create_calc_request(params)
             response = self.stub.Calc(request)
             result = {
                 "op": response.op,
@@ -113,12 +104,7 @@ class GrpcJobClient(JobClient):
 
         elif job_type == "stats":
             # Stats 동기 작업 - 즉시 결과 반환
-            values = params.get("values", [])
-            if not isinstance(values, list):
-                values = []
-
-            request = jobs_pb2.StatsRequest(values=[float(v) for v in values])
-
+            request = create_stats_request(params)
             response = self.stub.Stats(request)
             if response.error:
                 result = {"error": response.error}
@@ -140,10 +126,7 @@ class GrpcJobClient(JobClient):
 
         elif job_type == "hash":
             # Hash 비동기 작업
-            request = jobs_pb2.HashRequest()
-            for key, value in params.items():
-                request.data[key] = str(value)
-
+            request = create_hash_request(params)
             response = self.stub.CreateHashJob(request)
 
             return JobRecord(
@@ -155,10 +138,7 @@ class GrpcJobClient(JobClient):
 
         elif job_type == "fib":
             # Fib 비동기 작업
-            n_val = params.get("n", 0)
-            n = int(n_val) if isinstance(n_val, (int, float, str)) else 0
-            request = jobs_pb2.FibRequest(n=n)
-
+            request = create_fib_request(params)
             response = self.stub.CreateFibJob(request)
 
             return JobRecord(
@@ -170,13 +150,9 @@ class GrpcJobClient(JobClient):
 
         else:
             # 알 수 없는 타입은 echo로 처리
-            request = jobs_pb2.EchoRequest()
-            for key, value in params.items():
-                request.data[key] = str(value)
-
+            request = create_echo_request(params)
             self.stub.Echo(request)
-
-            job_id = str(uuid.uuid4())
+            job_id = generate_fallback_job_id()
             return JobRecord(
                 id=job_id,
                 type=job_type,
@@ -221,7 +197,7 @@ class GrpcJobClient(JobClient):
 
     def _extract_job_result(
         self, response: jobs_pb2.JobStatus
-    ) -> dict[str, object] | None:
+    ) -> Optional[dict[str, object]]:
         """JobStatus 응답에서 결과를 추출합니다."""
         # oneof result 필드 확인
         which_result = response.WhichOneof("result")
@@ -294,186 +270,3 @@ class GrpcJobClient(JobClient):
             "jobs": jobs,
             "total": response.total,
         }
-
-
-class AsyncGrpcJobClient:
-    """비동기 gRPC 클라이언트.
-
-    asyncio와 함께 사용할 수 있는 비동기 버전입니다.
-    """
-
-    def __init__(
-        self,
-        host: str = "localhost",
-        port: int = 50051,
-    ) -> None:
-        """클라이언트를 초기화합니다.
-
-        Args:
-            host: gRPC 서버 호스트
-            port: gRPC 서버 포트
-        """
-        self.host = host
-        self.port = port
-        self.channel: Optional[grpc.aio.Channel] = None
-        self.stub: Optional[jobs_pb2_grpc.JobServiceStub] = None
-
-    async def connect(self) -> None:
-        """서버에 연결합니다."""
-        self.channel = grpc.aio.insecure_channel(f"{self.host}:{self.port}")
-        self.stub = jobs_pb2_grpc.JobServiceStub(self.channel)
-
-    async def close(self) -> None:
-        """연결을 종료합니다."""
-        if self.channel is not None:
-            await self.channel.close()
-
-    async def __aenter__(self) -> "AsyncGrpcJobClient":
-        await self.connect()
-        return self
-
-    async def __aexit__(self, *args: object) -> None:
-        await self.close()
-
-    async def create_job(self, job_type: str, params: JobParams) -> JobRecord:
-        """비동기로 작업을 생성합니다."""
-        if self.stub is None:
-            raise RuntimeError("Client not connected. Call connect() first.")
-
-        if job_type == "echo":
-            request = jobs_pb2.EchoRequest()
-            for key, value in params.items():
-                request.data[key] = str(value)
-
-            await self.stub.Echo(request)
-
-            job_id = str(uuid.uuid4())
-            return JobRecord(
-                id=job_id,
-                type=job_type,
-                params=params,
-                status="done",
-            )
-
-        elif job_type == "calc":
-            a_val = params.get("a", 0)
-            b_val = params.get("b", 0)
-            request = jobs_pb2.CalcRequest(
-                op=str(params.get("op", "add")),
-                a=float(a_val) if isinstance(a_val, (int, float, str)) else 0.0,
-                b=float(b_val) if isinstance(b_val, (int, float, str)) else 0.0,
-            )
-
-            await self.stub.Calc(request)
-
-            job_id = str(uuid.uuid4())
-            return JobRecord(
-                id=job_id,
-                type=job_type,
-                params=params,
-                status="done",
-            )
-
-        elif job_type == "stats":
-            values = params.get("values", [])
-            if not isinstance(values, list):
-                values = []
-
-            request = jobs_pb2.StatsRequest(values=[float(v) for v in values])
-
-            await self.stub.Stats(request)
-
-            job_id = str(uuid.uuid4())
-            return JobRecord(
-                id=job_id,
-                type=job_type,
-                params=params,
-                status="done",
-            )
-
-        elif job_type == "hash":
-            request = jobs_pb2.HashRequest()
-            for key, value in params.items():
-                request.data[key] = str(value)
-
-            response = await self.stub.CreateHashJob(request)
-
-            return JobRecord(
-                id=response.job_id,
-                type=job_type,
-                params=params,
-                status=cast(JobStatus, response.status),
-            )
-
-        elif job_type == "fib":
-            n_val = params.get("n", 0)
-            n = int(n_val) if isinstance(n_val, (int, float, str)) else 0
-            request = jobs_pb2.FibRequest(n=n)
-
-            response = await self.stub.CreateFibJob(request)
-
-            return JobRecord(
-                id=response.job_id,
-                type=job_type,
-                params=params,
-                status=cast(JobStatus, response.status),
-            )
-
-        else:
-            request = jobs_pb2.EchoRequest()
-            for key, value in params.items():
-                request.data[key] = str(value)
-
-            await self.stub.Echo(request)
-
-            job_id = str(uuid.uuid4())
-            return JobRecord(
-                id=job_id,
-                type=job_type,
-                params=params,
-                status="done",
-            )
-
-    async def get_job(self, job_id: str) -> JobRecord:
-        """비동기로 작업 상태를 조회합니다."""
-        if self.stub is None:
-            raise RuntimeError("Client not connected. Call connect() first.")
-
-        request = jobs_pb2.JobId(id=job_id)
-
-        try:
-            response = await self.stub.GetJob(request)
-
-            if response.status == "not_found":
-                raise JobNotFoundError(f"Job {job_id} not found")
-
-            return JobRecord(
-                id=response.id,
-                type=response.type,
-                params={},
-                status=cast(JobStatus, response.status),
-            )
-
-        except grpc.RpcError as e:
-            if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise JobNotFoundError(f"Job {job_id} not found") from e
-            raise
-
-    async def watch_jobs(self) -> AsyncGenerator[JobRecord, None]:
-        """작업 상태 변경을 스트리밍으로 수신합니다.
-
-        Yields:
-            JobRecord: 상태가 변경된 작업
-        """
-        if self.stub is None:
-            raise RuntimeError("Client not connected. Call connect() first.")
-
-        request = jobs_pb2.Empty()
-
-        async for job_status in self.stub.WatchJobs(request):
-            yield JobRecord(
-                id=job_status.id,
-                type=job_status.type,
-                params={},
-                status=cast(JobStatus, job_status.status),
-            )

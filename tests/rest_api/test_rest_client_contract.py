@@ -16,11 +16,12 @@ Note:
 
 from __future__ import annotations
 
-from typing import Iterator, Tuple
+from typing import Iterator
 
 import pytest
 
-from communication.base import JobClient, JobParams
+from communication.base import JobClient
+from communication.types import JobParams
 from rest_api import RestJobClient
 from tests.conftest import ServerThread
 from tests.contract.test_job_client_contract import JobClientContractTests
@@ -41,14 +42,14 @@ class TestRestJobClientContract(JobClientContractTests):
 
     __test__ = True
 
-    def _random_payload(self) -> Tuple[str, JobParams]:
+    def _random_payload(self) -> tuple[str, JobParams]:
         """비동기 작업 타입(hash)을 사용하는 페이로드를 생성합니다.
 
         REST API에서는 비동기 작업만 서버에 저장되어 get_job으로 조회 가능합니다.
         따라서 계약 테스트에는 hash 작업 타입을 사용합니다.
 
         Returns:
-            Tuple[str, JobParams]: ("hash", 파라미터) 튜플
+            tuple[str, JobParams]: ("hash", 파라미터) 튜플
         """
         from uuid import uuid4
 

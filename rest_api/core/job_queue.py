@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Optional, Protocol
 
+from pydantic import BaseModel
+
 from rest_api.core.jobs.types import JobResult, BaseError
 
 # Job 완료 시 호출될 콜백 타입
@@ -13,9 +15,24 @@ OnCompleteCallback = Callable[[str], Awaitable[None]]
 
 
 class JobHandler(Protocol):
-    """AsyncJobHandler 호환 프로토콜."""
+    """AsyncJobHandler 호환 프로토콜.
 
-    async def execute(self, params: Any) -> JobResult: ...
+    모든 작업 핸들러는 이 프로토콜을 구현해야 합니다.
+    params는 Pydantic BaseModel을 상속받은 타입입니다.
+    """
+
+    async def execute(self, params: BaseModel) -> JobResult: ...
+
+
+class JobPayloadProtocol(Protocol):
+    """JobPayload가 가져야 할 최소한의 속성을 정의하는 Protocol.
+
+    store에 저장되는 객체는 이 Protocol을 만족해야 합니다.
+    """
+
+    params: BaseModel
+    status: str
+    result: Optional[object]
 
 
 logger = logging.getLogger(__name__)
@@ -28,8 +45,8 @@ class Job:
         self,
         job_id: str,
         job_type: str,
-        handler: type[JobHandler],  # 핸들러 클래스만 받음
-        store: dict[str, Any],  # params는 store[job_id].params에서 가져옴
+        handler: type[Any],  # AsyncJobHandler의 모든 구현체를 받을 수 있도록
+        store: dict[str, Any],  # AnyJobPayload를 포함한 모든 JobPayload 타입
         on_complete: Optional[OnCompleteCallback] = None,  # 완료 콜백
     ) -> None:
         self.job_id = job_id

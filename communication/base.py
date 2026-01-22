@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Optional, TypeAlias
+from typing import Optional
 from types import TracebackType
 
-
-JobId: TypeAlias = str
-JobParams: TypeAlias = dict[str, object]
-JobStatus = Literal["pending", "running", "done", "failed", "error"]
+from communication.types import JobId, JobParams, JobStatus
 
 
 class JobClientError(Exception):
