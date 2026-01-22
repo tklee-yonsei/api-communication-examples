@@ -16,17 +16,18 @@ Note:
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Tuple, cast
+from typing import Any, Iterator, Optional, cast
 
 import pytest
 
-from communication.base import JobClient, JobParams
+from communication.base import JobClient
+from communication.types import JobParams
 from grpc_api.client import GrpcJobClient
 from tests.conftest import GrpcServerThread
 from tests.contract.test_job_client_contract import JobClientContractTests
 
 
-def _get_result(params: dict[str, object] | None) -> dict[str, Any] | None:
+def _get_result(params: Optional[dict[str, object]]) -> Optional[dict[str, Any]]:
     """params에서 result를 추출합니다."""
     if params is None:
         return None
@@ -87,14 +88,14 @@ class TestGrpcJobClientContract(JobClientContractTests):
             fetched.status in valid_statuses
         ), f"조회된 상태가 유효해야 합니다: {fetched.status}"
 
-    def _random_payload(self) -> Tuple[str, JobParams]:
+    def _random_payload(self) -> tuple[str, JobParams]:
         """비동기 작업 타입(hash)을 사용하는 페이로드를 생성합니다.
 
         gRPC API에서는 비동기 작업만 서버에 저장되어 get_job으로 조회 가능합니다.
         따라서 계약 테스트에는 hash 작업 타입을 사용합니다.
 
         Returns:
-            Tuple[str, JobParams]: ("hash", 파라미터) 튜플
+            tuple[str, JobParams]: ("hash", 파라미터) 튜플
         """
         from uuid import uuid4
 

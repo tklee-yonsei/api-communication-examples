@@ -13,7 +13,7 @@ import asyncio
 import socket
 import threading
 import time
-from typing import Iterator
+from typing import Iterator, Optional
 
 import pytest
 import uvicorn
@@ -105,7 +105,7 @@ class GrpcServerThread(threading.Thread):
         port: gRPC 서버 포트
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int | None = None) -> None:
+    def __init__(self, host: str = "127.0.0.1", port: Optional[int] = None) -> None:
         """서버 스레드를 초기화합니다.
 
         Args:

@@ -14,7 +14,8 @@ from uuid import uuid4
 
 import pytest
 
-from communication.base import JobClient, JobNotFoundError, JobParams, JobRecord
+from communication.base import JobClient, JobNotFoundError, JobRecord
+from communication.types import JobParams
 from tests.contract.test_job_client_contract import JobClientContractTests
 
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import time
-from typing import Any, Iterator, cast
+from typing import Any, Iterator, Optional, cast
 
 import pytest
 
@@ -21,7 +21,7 @@ from grpc_api.client import GrpcJobClient
 from tests.conftest import GrpcServerThread
 
 
-def _get_result(params: dict[str, object] | None) -> dict[str, Any] | None:
+def _get_result(params: Optional[dict[str, object]]) -> Optional[dict[str, Any]]:
     """params에서 result를 추출합니다."""
     if params is None:
         return None

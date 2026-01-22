@@ -17,12 +17,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Tuple
 from uuid import uuid4
 
 import pytest
 
-from communication.base import JobClient, JobNotFoundError, JobParams
+from communication.base import JobClient, JobNotFoundError
+from communication.types import JobParams
 
 
 class JobClientContractTests(ABC):
@@ -48,7 +48,7 @@ class JobClientContractTests(ABC):
             JobClient: 테스트할 클라이언트 인스턴스
         """
 
-    def _random_payload(self) -> Tuple[str, JobParams]:
+    def _random_payload(self) -> tuple[str, JobParams]:
         """임의의 작업 타입/파라미터 페어를 생성합니다.
 
         테스트 간 격리를 위해 고유한 값을 생성합니다.
@@ -57,7 +57,7 @@ class JobClientContractTests(ABC):
         REST 클라이언트 등 특정 작업 타입이 필요한 경우 오버라이드하세요.
 
         Returns:
-            Tuple[str, JobParams]: (작업 타입, 파라미터) 튜플
+            tuple[str, JobParams]: (작업 타입, 파라미터) 튜플
         """
         job_type = f"job-{uuid4()}"
         params: JobParams = {"payload": f"data-{uuid4()}"}
