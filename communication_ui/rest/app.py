@@ -4,33 +4,27 @@ import json
 import os
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional, cast
+from typing import Optional
 
 from flask import Flask, Response, jsonify, make_response, render_template, request
 from flask_sock import Sock
 from requests import Session
 from simple_websocket import Server as WsServer
 
+from communication_ui.rest.config import (
+    DEFAULT_BASE_URL,
+    DEFAULT_GRPC_HOST,
+    DEFAULT_GRPC_PORT,
+    MAX_CONCURRENCY,
+    MAX_COUNT,
+)
+from communication_ui.rest.grpc_client import run_grpc_batch
+from communication_ui.rest.rest_client import run_batch
+from communication_ui.rest.types import BatchResult
+from communication_ui.rest.utils import coerce_int, parse_params
+
 # flask-sock 타입 정의 없음 - 타입 검사 무시
 # pyright: reportUnknownMemberType=false
-
-# REST API 설정
-# Docker 네트워크 내부: rest-api:8080
-# devcontainer/로컬: host.docker.internal:8080 또는 localhost:8080
-DEFAULT_BASE_URL = os.getenv("REST_API_BASE_URL", "http://host.docker.internal:8080")
-# WebSocket URL (http -> ws 변환)
-DEFAULT_WS_URL = os.getenv(
-    "REST_API_WS_URL",
-    DEFAULT_BASE_URL.replace("http://", "ws://").replace("https://", "wss://"),
-)
-
-# gRPC API 설정
-DEFAULT_GRPC_HOST = os.getenv("GRPC_API_HOST", "localhost")
-DEFAULT_GRPC_PORT = int(os.getenv("GRPC_API_PORT", "50051"))
-
-MAX_CONCURRENCY = 64
-MAX_COUNT = 20000
 
 
 def create_app() -> Flask:
@@ -74,7 +68,7 @@ def create_app() -> Flask:
         finally:
             session.close()
 
-    @sock.route("/ws/jobs")  # pyright: ignore[reportUnusedFunction]
+    @sock.route("/ws/jobs")
     def websocket_jobs_proxy(  # pyright: ignore[reportUnusedFunction]
         ws: WsServer,
     ) -> None:
@@ -143,21 +137,25 @@ def create_app() -> Flask:
         payload: dict[str, object] = request.get_json(silent=True) or {}
         base_url = str(payload.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
         job_type = str(payload.get("job_type") or "default")
-        params = _parse_params(payload.get("params"))
-        count = _coerce_int(
+        params = parse_params(payload.get("params"))
+        count = coerce_int(
             payload.get("count"), default=1, minimum=1, maximum=MAX_COUNT
         )
-        concurrency = _coerce_int(
+        concurrency = coerce_int(
             payload.get("concurrency"), default=8, minimum=1, maximum=MAX_CONCURRENCY
         )
 
         started_at = time.perf_counter()
-        successes, failures = _run_batch(base_url, job_type, params, count, concurrency)
+        result: BatchResult = run_batch(base_url, job_type, params, count, concurrency)
         duration = time.perf_counter() - started_at
 
-        sample_ids = [item["id"] for item in successes[:20] if "id" in item]
-        sample_results = [item["result"] for item in successes[:20] if "result" in item]
-        sample_failures = failures[:10]
+        sample_ids: list[str] = [
+            str(item["id"]) for item in result.successes[:20] if "id" in item
+        ]
+        sample_results: list[object] = [
+            item["result"] for item in result.successes[:20] if "result" in item
+        ]
+        sample_failures: list[dict[str, object]] = result.failures[:10]
 
         return jsonify(
             {
@@ -168,8 +166,8 @@ def create_app() -> Flask:
                 "concurrency": concurrency,
                 "duration_ms": round(duration * 1000, 2),
                 "throughput_per_sec": round(count / duration, 2) if duration else None,
-                "success": len(successes),
-                "failure": len(failures),
+                "success": len(result.successes),
+                "failure": len(result.failures),
                 "sample_job_ids": sample_ids,
                 "sample_results": sample_results,
                 "sample_failures": sample_failures,
@@ -203,30 +201,34 @@ def create_app() -> Flask:
         """gRPC 서버로 대량 요청을 전송합니다."""
         payload: dict[str, object] = request.get_json(silent=True) or {}
         grpc_host = str(payload.get("grpc_host") or DEFAULT_GRPC_HOST)
-        grpc_port = _coerce_int(
+        grpc_port = coerce_int(
             payload.get("grpc_port"),
             default=DEFAULT_GRPC_PORT,
             minimum=1,
             maximum=65535,
         )
         job_type = str(payload.get("job_type") or "echo")
-        params = _parse_params(payload.get("params"))
-        count = _coerce_int(
+        params = parse_params(payload.get("params"))
+        count = coerce_int(
             payload.get("count"), default=1, minimum=1, maximum=MAX_COUNT
         )
-        concurrency = _coerce_int(
+        concurrency = coerce_int(
             payload.get("concurrency"), default=8, minimum=1, maximum=MAX_CONCURRENCY
         )
 
         started_at = time.perf_counter()
-        successes, failures = _run_grpc_batch(
+        result: BatchResult = run_grpc_batch(
             grpc_host, grpc_port, job_type, params, count, concurrency
         )
         duration = time.perf_counter() - started_at
 
-        sample_ids = [item["id"] for item in successes[:20] if "id" in item]
-        sample_results = [item["result"] for item in successes[:20] if "result" in item]
-        sample_failures = failures[:10]
+        sample_ids: list[str] = [
+            str(item["id"]) for item in result.successes[:20] if "id" in item
+        ]
+        sample_results: list[object] = [
+            item["result"] for item in result.successes[:20] if "result" in item
+        ]
+        sample_failures: list[dict[str, object]] = result.failures[:10]
 
         return jsonify(
             {
@@ -238,8 +240,8 @@ def create_app() -> Flask:
                 "concurrency": concurrency,
                 "duration_ms": round(duration * 1000, 2),
                 "throughput_per_sec": round(count / duration, 2) if duration else None,
-                "success": len(successes),
-                "failure": len(failures),
+                "success": len(result.successes),
+                "failure": len(result.failures),
                 "sample_job_ids": sample_ids,
                 "sample_results": sample_results,
                 "sample_failures": sample_failures,
@@ -252,7 +254,7 @@ def create_app() -> Flask:
     ) -> Response:
         """gRPC 서버에서 Job 상태를 조회합니다."""
         grpc_host = str(request.args.get("grpc_host") or DEFAULT_GRPC_HOST)
-        grpc_port = _coerce_int(
+        grpc_port = coerce_int(
             request.args.get("grpc_port"),
             default=DEFAULT_GRPC_PORT,
             minimum=1,
@@ -282,13 +284,13 @@ def create_app() -> Flask:
     def grpc_list_jobs() -> Response:  # pyright: ignore[reportUnusedFunction]
         """gRPC 서버에서 전체 Job 목록을 조회합니다."""
         grpc_host = str(request.args.get("grpc_host") or DEFAULT_GRPC_HOST)
-        grpc_port = _coerce_int(
+        grpc_port = coerce_int(
             request.args.get("grpc_port"),
             default=DEFAULT_GRPC_PORT,
             minimum=1,
             maximum=65535,
         )
-        limit = _coerce_int(
+        limit = coerce_int(
             request.args.get("limit"), default=50, minimum=1, maximum=1000
         )
 
@@ -308,7 +310,7 @@ def create_app() -> Flask:
     def grpc_queue_status() -> Response:  # pyright: ignore[reportUnusedFunction]
         """gRPC 서버의 작업 큐 상태를 조회합니다."""
         grpc_host = str(request.args.get("grpc_host") or DEFAULT_GRPC_HOST)
-        grpc_port = _coerce_int(
+        grpc_port = coerce_int(
             request.args.get("grpc_port"),
             default=DEFAULT_GRPC_PORT,
             minimum=1,
@@ -328,185 +330,6 @@ def create_app() -> Flask:
             return make_response(jsonify({"error": str(exc)}), 500)
 
     return app
-
-
-def _parse_params(raw: object) -> dict[str, object]:
-    if raw is None:
-        return {}
-    if isinstance(raw, dict):
-        return cast(dict[str, object], raw)
-    if isinstance(raw, str) and raw.strip():
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            return {}
-        if isinstance(parsed, dict):
-            return cast(dict[str, object], parsed)
-    return {}
-
-
-def _coerce_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
-    """값을 정수로 변환하고 범위 내로 제한합니다.
-
-    Args:
-        value: 정수로 변환할 값
-        default: 변환 실패 시 기본값
-        minimum: 허용되는 최소값
-        maximum: 허용되는 최대값
-
-    Returns:
-        int: 범위 내로 제한된 정수 값
-    """
-    as_int: int
-    if isinstance(value, int):
-        as_int = value
-    elif isinstance(value, (str, float)):
-        try:
-            as_int = int(value)
-        except (ValueError, TypeError):
-            as_int = default
-    else:
-        as_int = default
-    clamped: int = max(minimum, min(maximum, as_int))
-    return clamped
-
-
-def _run_batch(
-    base_url: str,
-    job_type: str,
-    params: dict[str, object],
-    count: int,
-    concurrency: int,
-) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    successes: list[dict[str, object]] = []
-    failures: list[dict[str, object]] = []
-
-    max_workers = max(1, min(concurrency, count, MAX_CONCURRENCY))
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_create_single, base_url, job_type, params)
-            for _ in range(count)
-        ]
-        for future in as_completed(futures):
-            ok, data = future.result()
-            if ok:
-                successes.append(data)
-            else:
-                failures.append(data)
-    return successes, failures
-
-
-def _create_single(
-    base_url: str, job_type: str, params: dict[str, object]
-) -> tuple[bool, dict[str, object]]:
-    """단일 작업 요청을 전송합니다.
-
-    동기 작업(echo, calc, stats): 즉시 결과 반환
-    비동기 작업(hash, fib): job_id 반환 후 상태 조회
-    """
-    session = Session()
-
-    try:
-        # job_type에 따라 다른 엔드포인트 사용
-        if job_type in ("echo", "calc", "stats"):
-            # 동기: 즉시 결과 반환
-            resp = session.post(f"{base_url}/{job_type}", json=params, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            return True, {
-                "type": job_type,
-                "params": params,
-                "result": data.get("result"),
-                "mode": "sync",
-            }
-        elif job_type in ("hash", "fib"):
-            # 비동기: job_id 반환
-            resp = session.post(f"{base_url}/{job_type}_jobs", json=params, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            job_id = data.get("job_id", "")
-            return True, {
-                "id": job_id,
-                "type": job_type,
-                "params": params,
-                "status": data.get("status", "pending"),
-                "mode": "async",
-            }
-        else:
-            # 알 수 없는 타입
-            return False, {"error": f"Unknown job type: {job_type}"}
-    except Exception as exc:  # pragma: no cover - 네트워크/서버 오류만
-        return False, {"error": str(exc)}
-    finally:
-        session.close()
-
-
-# ==========================================
-# gRPC 배치 처리 함수
-# ==========================================
-
-
-def _run_grpc_batch(
-    grpc_host: str,
-    grpc_port: int,
-    job_type: str,
-    params: dict[str, object],
-    count: int,
-    concurrency: int,
-) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    """gRPC 서버로 대량 요청을 전송합니다."""
-    successes: list[dict[str, object]] = []
-    failures: list[dict[str, object]] = []
-
-    max_workers = max(1, min(concurrency, count, MAX_CONCURRENCY))
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_create_single_grpc, grpc_host, grpc_port, job_type, params)
-            for _ in range(count)
-        ]
-        for future in as_completed(futures):
-            ok, data = future.result()
-            if ok:
-                successes.append(data)
-            else:
-                failures.append(data)
-    return successes, failures
-
-
-def _create_single_grpc(
-    grpc_host: str,
-    grpc_port: int,
-    job_type: str,
-    params: dict[str, object],
-) -> tuple[bool, dict[str, object]]:
-    """gRPC로 단일 작업 요청을 전송합니다."""
-    try:
-        from grpc_api.client import GrpcJobClient
-
-        with GrpcJobClient(host=grpc_host, port=grpc_port) as client:
-            record = client.create_job(job_type, params)
-
-            if record.status == "done":
-                # 동기 작업: 결과가 params["result"]에 들어있음
-                result_data = record.params.get("result") if record.params else None
-                return True, {
-                    "type": record.type,
-                    "params": params,
-                    "result": result_data,
-                    "status": record.status,
-                    "mode": "sync",
-                }
-            else:
-                # 비동기 작업: job_id 반환
-                return True, {
-                    "id": record.id,
-                    "type": record.type,
-                    "params": params,
-                    "status": record.status,
-                    "mode": "async",
-                }
-    except Exception as exc:
-        return False, {"error": str(exc)}
 
 
 if __name__ == "__main__":
