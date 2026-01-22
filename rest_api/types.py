@@ -7,7 +7,7 @@ from typing import Generic, Optional, TypeVar, Union
 from pydantic import BaseModel
 
 from communication.types import Result
-from rest_api.core.jobs.types import (
+from communication.jobs.types import (
     BaseError,
     CalcError,
     CalcParams,
