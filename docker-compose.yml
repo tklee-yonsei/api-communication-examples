@@ -55,7 +55,6 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./communication:/app/communication
-      - ./rest_api:/app/rest_api
       - ./grpc_api:/app/grpc_api
     networks:
       - app-network
@@ -71,6 +70,41 @@ services:
       dockerfile: grpc_api/Dockerfile
     ports:
       - "50051:50051"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+
+  # ===========================================
+  # WebSocket API 서버 (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
+  # ===========================================
+  websocket-api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: websocket_api/Dockerfile.dev
+    ports:
+      - "8082:8082"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./communication:/app/communication
+      - ./websocket_api:/app/websocket_api
+    networks:
+      - app-network
+
+  # ===========================================
+  # WebSocket API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  websocket-api-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: websocket_api/Dockerfile
+    ports:
+      - "8082:8082"
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -101,6 +135,8 @@ services:
         condition: service_started
       grpc-api-dev:
         condition: service_started
+      websocket-api-dev:
+        condition: service_started
     networks:
       - app-network
 
@@ -123,6 +159,8 @@ services:
       rest-api-prod:
         condition: service_started
       grpc-api-prod:
+        condition: service_started
+      websocket-api-prod:
         condition: service_started
     networks:
       - app-network

@@ -15,11 +15,13 @@ from communication_ui.rest.config import (
     DEFAULT_BASE_URL,
     DEFAULT_GRPC_HOST,
     DEFAULT_GRPC_PORT,
+    DEFAULT_WEBSOCKET_URL,
     MAX_CONCURRENCY,
     MAX_COUNT,
 )
 from communication_ui.rest.grpc_client import run_grpc_batch
 from communication_ui.rest.rest_client import run_batch
+from communication_ui.rest.websocket_client import run_websocket_batch
 from communication_ui.rest.types import BatchResult
 from communication_ui.rest.utils import coerce_int, parse_params
 
@@ -51,6 +53,7 @@ def create_app() -> Flask:
             default_base_url=DEFAULT_BASE_URL,
             default_grpc_host=DEFAULT_GRPC_HOST,
             default_grpc_port=DEFAULT_GRPC_PORT,
+            default_websocket_url=DEFAULT_WEBSOCKET_URL,
         )
 
     @app.get("/api/jobs")
@@ -191,6 +194,55 @@ def create_app() -> Flask:
             return make_response(jsonify({"error": str(exc)}), 500)
         finally:
             session.close()
+
+    # ==========================================
+    # WebSocket API 프록시 엔드포인트
+    # ==========================================
+
+    @app.post("/api/websocket/batch")
+    def websocket_batch() -> Response:  # pyright: ignore[reportUnusedFunction]
+        """WebSocket 서버로 대량 요청을 전송합니다."""
+        payload: dict[str, object] = request.get_json(silent=True) or {}
+        websocket_url = str(payload.get("websocket_url") or DEFAULT_WEBSOCKET_URL)
+        job_type = str(payload.get("job_type") or "echo")
+        params = parse_params(payload.get("params"))
+        count = coerce_int(
+            payload.get("count"), default=1, minimum=1, maximum=MAX_COUNT
+        )
+        concurrency = coerce_int(
+            payload.get("concurrency"), default=8, minimum=1, maximum=MAX_CONCURRENCY
+        )
+
+        started_at = time.perf_counter()
+        result: BatchResult = run_websocket_batch(
+            websocket_url, job_type, params, count, concurrency
+        )
+        duration = time.perf_counter() - started_at
+
+        sample_ids: list[str] = [
+            str(item["id"]) for item in result.successes[:20] if "id" in item
+        ]
+        sample_results: list[object] = [
+            item["result"] for item in result.successes[:20] if "result" in item
+        ]
+        sample_failures: list[dict[str, object]] = result.failures[:10]
+
+        return jsonify(
+            {
+                "websocket_url": websocket_url,
+                "job_type": job_type,
+                "params": params,
+                "requested": count,
+                "concurrency": concurrency,
+                "duration_ms": round(duration * 1000, 2),
+                "throughput_per_sec": round(count / duration, 2) if duration else None,
+                "success": len(result.successes),
+                "failure": len(result.failures),
+                "sample_job_ids": sample_ids,
+                "sample_results": sample_results,
+                "sample_failures": sample_failures,
+            }
+        )
 
     # ==========================================
     # gRPC API 프록시 엔드포인트

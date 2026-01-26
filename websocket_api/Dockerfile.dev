@@ -1,0 +1,28 @@
+FROM python:3.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+WORKDIR /app
+
+# uv 설치
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# pyproject.toml 및 uv.lock 복사
+COPY pyproject.toml uv.lock* /app/
+
+# 공통 비즈니스 로직 포함 (볼륨 마운트로 덮어씌워지지만 빌드 시점에 필요)
+COPY communication/ /app/communication
+
+# websocket_api는 볼륨 마운트로 제공되므로 빈 디렉토리만 생성
+RUN mkdir -p /app/websocket_api && \
+    touch /app/websocket_api/__init__.py
+
+# uv로 의존성 설치 (시스템 Python에 직접 설치)
+RUN uv pip install --system -r pyproject.toml
+
+EXPOSE 8082
+
+# 서버 실행
+CMD ["python", "-m", "websocket_api"]

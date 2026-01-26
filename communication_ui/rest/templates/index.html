@@ -304,6 +304,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="rest">REST API</button>
       <button class="tab" data-tab="grpc">gRPC</button>
+      <button class="tab" data-tab="websocket">WebSocket</button>
     </nav>
 
     <!-- REST 탭 내용 -->
@@ -374,6 +375,36 @@
       </section>
     </div>
 
+    <div id="websocket-tab" class="tab-content">
+      <section class="card">
+        <h2>WebSocket 설정</h2>
+        <div class="field">
+          <label for="websocketUrl">WebSocket URL</label>
+          <input id="websocketUrl" type="text" value="{{ default_websocket_url }}" />
+          <p class="hint">Docker 네트워크 내부 (기본값): ws://websocket-api-dev:8082/ws. devcontainer/로컬: ws://localhost:8082/ws (포트 포워딩 필요).</p>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="websocketJobType">job type</label>
+            <input id="websocketJobType" type="text" value="echo" />
+          </div>
+          <div class="field">
+            <label for="websocketConcurrency">동시 요청 수</label>
+            <input id="websocketConcurrency" type="number" value="8" min="1" max="64" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="websocketParams">params (JSON)</label>
+          <textarea id="websocketParams" rows="4">{ "message": "hello" }</textarea>
+        </div>
+        <div class="actions">
+          <button data-count="1" data-protocol="websocket">1개 전송</button>
+          <button data-count="100" data-protocol="websocket">100개 전송</button>
+          <button data-count="10000" data-protocol="websocket" class="danger">10000개 전송</button>
+        </div>
+      </section>
+    </div>
+
     <section class="card">
       <h2>Job 타입 예시</h2>
       <div class="examples">
@@ -403,6 +434,7 @@
           <select id="statusProtocol">
             <option value="rest">REST</option>
             <option value="grpc">gRPC</option>
+            <option value="websocket">WebSocket</option>
           </select>
         </div>
       </div>
@@ -524,6 +556,9 @@
           // gRPC 탭도 업데이트
           document.getElementById("grpcJobType").value = type || "";
           document.getElementById("grpcParams").value = JSON.stringify(params || {}, null, 2);
+          // WebSocket 탭도 업데이트
+          document.getElementById("websocketJobType").value = type || "";
+          document.getElementById("websocketParams").value = JSON.stringify(params || {}, null, 2);
         } catch (err) {
           console.error("failed to load example", err);
         }
@@ -536,6 +571,8 @@
         const protocol = btn.dataset.protocol || "rest";
         if (protocol === "grpc") {
           runGrpcBatch(count);
+        } else if (protocol === "websocket") {
+          runWebSocketBatch(count);
         } else {
           runBatch(count);
         }
@@ -560,6 +597,10 @@
           const grpcHost = document.getElementById("grpcHost").value.trim();
           const grpcPort = document.getElementById("grpcPort").value.trim();
           url = `/api/grpc/jobs/${encodeURIComponent(jobId)}?grpc_host=${encodeURIComponent(grpcHost)}&grpc_port=${encodeURIComponent(grpcPort)}`;
+        } else if (protocol === "websocket") {
+          // WebSocket은 직접 연결이 필요하므로 상태 조회는 지원하지 않음
+          statusBox.textContent = "WebSocket은 실시간 연결을 통해 상태를 확인하세요.";
+          return;
         } else {
           const baseUrl = document.getElementById("baseUrl").value.trim();
           url = `/api/jobs/${encodeURIComponent(jobId)}?base_url=${encodeURIComponent(baseUrl)}`;
@@ -622,6 +663,34 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ grpc_host: grpcHost, grpc_port: grpcPort, job_type: jobType, params, count, concurrency }),
+        });
+        const data = await resp.json();
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resultBox.textContent = `실패: ${err}`;
+      }
+    }
+
+    async function runWebSocketBatch(count) {
+      const websocketUrl = document.getElementById("websocketUrl").value.trim();
+      const jobType = document.getElementById("websocketJobType").value.trim() || "echo";
+      const concurrency = Number(document.getElementById("websocketConcurrency").value || "1");
+      const paramsText = document.getElementById("websocketParams").value;
+
+      let params;
+      try {
+        params = paramsText ? JSON.parse(paramsText) : {};
+      } catch (err) {
+        resultBox.textContent = "params JSON 파싱 오류: " + err;
+        return;
+      }
+
+      resultBox.textContent = `WebSocket 요청 중... (${count}개)`;
+      try {
+        const resp = await fetch("/api/websocket/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ websocket_url: websocketUrl, job_type: jobType, params, count, concurrency }),
         });
         const data = await resp.json();
         resultBox.textContent = JSON.stringify(data, null, 2);
