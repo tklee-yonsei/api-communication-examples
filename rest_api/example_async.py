@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import asyncio
 
-from rest_api.core.jobs import (
+from communication.jobs import (
     CalcJobHandler,
     EchoJobHandler,
     HashJobHandler,
     StatsJobHandler,
 )
-from rest_api.core.jobs.types import (
+from communication.jobs.types import (
     CalcParams,
     EchoParams,
     HashParams,

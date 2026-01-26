@@ -13,13 +13,16 @@ import asyncio
 import socket
 import threading
 import time
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TYPE_CHECKING
 
 import pytest
 import uvicorn
 
 from grpc_api.client import GrpcJobClient
 from rest_api import RestJobClient, create_app
+
+if TYPE_CHECKING:
+    from communication.base import JobClient
 
 
 class _UvicornServer(uvicorn.Server):
@@ -240,5 +243,94 @@ def grpc_client(grpc_server: GrpcServerThread) -> Iterator[GrpcJobClient]:
     from grpc_api.client import GrpcJobClient
 
     client = GrpcJobClient(host=grpc_server.host, port=grpc_server.port)
+    yield client
+    client.close()
+
+
+class WebSocketServerThread(threading.Thread):
+    """WebSocket 서버를 백그라운드 스레드에서 실행하는 헬퍼 클래스.
+
+    Attributes:
+        host: WebSocket 서버 호스트
+        port: WebSocket 서버 포트
+        server: Uvicorn 서버 인스턴스
+    """
+
+    def __init__(self, host: str = "127.0.0.1", port: Optional[int] = None) -> None:
+        """서버 스레드를 초기화합니다.
+
+        Args:
+            host: 서버 바인딩 호스트
+            port: 서버 바인딩 포트 (None이면 자동 할당)
+        """
+        from websocket_api.server import create_app
+
+        self.host = host
+        self.port = port if port is not None else _find_free_port()
+        self.app = create_app()
+        config = uvicorn.Config(
+            self.app,
+            host=self.host,
+            port=self.port,
+            log_level="error",
+        )
+        self.server = _UvicornServer(config=config)
+        super().__init__(daemon=True)
+
+    def run(self) -> None:  # pragma: no cover - 스레드 실행 코드
+        """서버를 실행합니다."""
+        asyncio.run(self.server.serve())
+
+    def stop(self) -> None:
+        """서버를 중지합니다."""
+        self.server.should_exit = True
+        self.join(timeout=5)
+
+    @property
+    def websocket_url(self) -> str:
+        """서버의 WebSocket URL을 반환합니다.
+
+        Returns:
+            str: ws://host:port/ws 형식의 URL
+        """
+        # 서버가 시작될 때까지 대기
+        for _ in range(50):  # 최대 5초 대기
+            if self.server.started:
+                break
+            time.sleep(0.1)
+
+        return f"ws://{self.host}:{self.port}/ws"
+
+
+@pytest.fixture(scope="module")
+def websocket_server() -> Iterator[WebSocketServerThread]:
+    """모듈 범위의 테스트용 WebSocket API 서버를 제공합니다.
+
+    Yields:
+        WebSocketServerThread: 실행 중인 서버 스레드
+    """
+    srv = WebSocketServerThread()
+    srv.start()
+
+    # 서버가 완전히 시작될 때까지 대기
+    time.sleep(0.5)
+
+    yield srv
+    srv.stop()
+
+
+@pytest.fixture
+def websocket_client(websocket_server: WebSocketServerThread) -> Iterator["JobClient"]:
+    """테스트용 WebSocket 클라이언트를 생성합니다.
+
+    Args:
+        websocket_server: 실행 중인 서버 fixture
+
+    Yields:
+        JobClient: 설정된 WebSocket 클라이언트
+    """
+    from websocket_api.client import WebSocketJobClient
+
+    client: "JobClient" = WebSocketJobClient(url=websocket_server.websocket_url)
     yield client
     client.close()

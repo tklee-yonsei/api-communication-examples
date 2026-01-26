@@ -18,5 +18,12 @@ DEFAULT_WS_URL = os.getenv(
 DEFAULT_GRPC_HOST = os.getenv("GRPC_API_HOST", "localhost")
 DEFAULT_GRPC_PORT = int(os.getenv("GRPC_API_PORT", "50051"))
 
+# WebSocket API 설정
+# Docker 네트워크 내부: websocket-api-dev:8082
+# devcontainer/로컬: localhost:8082 (포트 포워딩 필요)
+DEFAULT_WEBSOCKET_URL = os.getenv(
+    "WEBSOCKET_API_URL", "ws://websocket-api-dev:8082/ws"
+)
+
 MAX_CONCURRENCY = 64
 MAX_COUNT = 20000

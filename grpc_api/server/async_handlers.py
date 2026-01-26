@@ -10,13 +10,13 @@ import grpc
 
 from grpc_api.protos import jobs_pb2
 from grpc_api.server.types import JobPayload
-from rest_api.core.job_queue import Job, JobQueue
+from communication.job_queue import Job, JobQueue
 
 # Job 완료 시 호출될 콜백 타입
 OnCompleteCallback = Callable[[str], Awaitable[None]]
 
-from rest_api.core.jobs import FibJobHandler, HashJobHandler
-from rest_api.core.jobs.types import (
+from communication.jobs import FibJobHandler, HashJobHandler
+from communication.jobs.types import (
     BaseError,
     FibParams,
     FibResult,

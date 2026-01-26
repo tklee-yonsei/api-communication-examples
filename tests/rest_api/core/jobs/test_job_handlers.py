@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import pytest
 
-from rest_api.core.jobs import (
+from communication.jobs import (
     CalcJobHandler,
     EchoJobHandler,
     FibJobHandler,
     HashJobHandler,
     StatsJobHandler,
 )
-from rest_api.core.jobs.types import (
+from communication.jobs.types import (
     CalcError,
     CalcParams,
     CalcResult,

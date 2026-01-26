@@ -1,4 +1,4 @@
-"""REST API 타입 정의."""
+"""WebSocket API 타입 정의."""
 
 from __future__ import annotations
 

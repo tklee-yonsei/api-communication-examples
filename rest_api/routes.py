@@ -12,15 +12,15 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from rest_api.core.job_queue import Job, get_job_queue
-from rest_api.core.jobs import (
+from communication.job_queue import Job, get_job_queue
+from communication.jobs import (
     CalcJobHandler,
     EchoJobHandler,
     FibJobHandler,
     HashJobHandler,
     StatsJobHandler,
 )
-from rest_api.core.jobs.types import BaseError
+from communication.jobs.types import BaseError
 from rest_api.types import (
     AnyJobPayload,
     EchoParams,

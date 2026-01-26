@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Generic, Optional, TypeVar
 
 from communication.types import Result
-from rest_api.core.jobs.types import JobResult
+from communication.jobs.types import JobResult
 
 # 제네릭 타입 변수
 P = TypeVar("P")  # params 타입

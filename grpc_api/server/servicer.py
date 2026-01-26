@@ -21,7 +21,7 @@ from grpc_api.server.async_handlers import create_fib_job, create_hash_job
 from grpc_api.server.sync_handlers import handle_calc, handle_echo, handle_stats
 from grpc_api.server.utils import job_payload_to_proto
 from grpc_api.server.watcher import WatcherManager
-from rest_api.core.job_queue import JobQueue
+from communication.job_queue import JobQueue
 
 logger = logging.getLogger(__name__)
 

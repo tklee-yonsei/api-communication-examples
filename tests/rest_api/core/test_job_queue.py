@@ -20,8 +20,8 @@ from typing import Any
 
 import pytest
 
-from rest_api.core.job_queue import Job, JobQueue
-from rest_api.core.jobs.types import BaseError
+from communication.job_queue import Job, JobQueue
+from communication.jobs.types import BaseError
 
 
 class MockJobPayload:

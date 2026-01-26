@@ -6,8 +6,8 @@ import logging
 from typing import Literal
 
 from grpc_api.protos import jobs_pb2
-from rest_api.core.jobs import CalcJobHandler, EchoJobHandler, StatsJobHandler
-from rest_api.core.jobs.types import (
+from communication.jobs import CalcJobHandler, EchoJobHandler, StatsJobHandler
+from communication.jobs.types import (
     CalcParams,
     EchoParams,
     StatsParams,
