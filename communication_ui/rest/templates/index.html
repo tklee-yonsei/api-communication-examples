@@ -364,6 +364,17 @@
           </div>
         </div>
         <div class="field">
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <input id="grpcPersistent" type="checkbox" style="margin-top: 4px; width: auto; flex: 0 0 auto; min-width: 0;" />
+            <div style="flex: 1; min-width: 0;">
+              <label for="grpcPersistent" style="display: block; margin-bottom: 4px; cursor: pointer;">
+                연결 열고 한꺼번에 보내기 (단일 연결로 모든 요청 전송)
+              </label>
+              <p class="hint" style="margin: 0;">체크하면 하나의 연결을 열고 모든 요청을 순차적으로 전송합니다. gRPC/WebSocket의 장점을 활용할 수 있습니다.</p>
+            </div>
+          </div>
+        </div>
+        <div class="field">
           <label for="grpcParams">params (JSON)</label>
           <textarea id="grpcParams" rows="4">{ "message": "hello" }</textarea>
         </div>
@@ -391,6 +402,17 @@
           <div class="field">
             <label for="websocketConcurrency">동시 요청 수</label>
             <input id="websocketConcurrency" type="number" value="8" min="1" max="64" />
+          </div>
+        </div>
+        <div class="field">
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <input id="websocketPersistent" type="checkbox" style="margin-top: 4px; width: auto; flex: 0 0 auto; min-width: 0;" />
+            <div style="flex: 1; min-width: 0;">
+              <label for="websocketPersistent" style="display: block; margin-bottom: 4px; cursor: pointer;">
+                연결 열고 한꺼번에 보내기 (단일 연결로 모든 요청 전송)
+              </label>
+              <p class="hint" style="margin: 0;">체크하면 하나의 연결을 열고 모든 요청을 순차적으로 전송합니다. WebSocket의 장점을 활용할 수 있습니다.</p>
+            </div>
           </div>
         </div>
         <div class="field">
@@ -647,6 +669,7 @@
       const grpcPort = Number(document.getElementById("grpcPort").value || "50051");
       const jobType = document.getElementById("grpcJobType").value.trim() || "echo";
       const concurrency = Number(document.getElementById("grpcConcurrency").value || "1");
+      const persistent = document.getElementById("grpcPersistent").checked;
       const paramsText = document.getElementById("grpcParams").value;
 
       let params;
@@ -657,12 +680,12 @@
         return;
       }
 
-      resultBox.textContent = `gRPC 요청 중... (${count}개)`;
+      resultBox.textContent = `gRPC 요청 중... (${count}개, ${persistent ? "단일 연결" : "다중 연결"})`;
       try {
         const resp = await fetch("/api/grpc/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ grpc_host: grpcHost, grpc_port: grpcPort, job_type: jobType, params, count, concurrency }),
+          body: JSON.stringify({ grpc_host: grpcHost, grpc_port: grpcPort, job_type: jobType, params, count, concurrency, persistent }),
         });
         const data = await resp.json();
         resultBox.textContent = JSON.stringify(data, null, 2);
@@ -675,6 +698,7 @@
       const websocketUrl = document.getElementById("websocketUrl").value.trim();
       const jobType = document.getElementById("websocketJobType").value.trim() || "echo";
       const concurrency = Number(document.getElementById("websocketConcurrency").value || "1");
+      const persistent = document.getElementById("websocketPersistent").checked;
       const paramsText = document.getElementById("websocketParams").value;
 
       let params;
@@ -685,12 +709,12 @@
         return;
       }
 
-      resultBox.textContent = `WebSocket 요청 중... (${count}개)`;
+      resultBox.textContent = `WebSocket 요청 중... (${count}개, ${persistent ? "단일 연결" : "다중 연결"})`;
       try {
         const resp = await fetch("/api/websocket/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ websocket_url: websocketUrl, job_type: jobType, params, count, concurrency }),
+          body: JSON.stringify({ websocket_url: websocketUrl, job_type: jobType, params, count, concurrency, persistent }),
         });
         const data = await resp.json();
         resultBox.textContent = JSON.stringify(data, null, 2);

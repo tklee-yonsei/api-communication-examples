@@ -15,6 +15,7 @@ def run_grpc_batch(
     params: dict[str, object],
     count: int,
     concurrency: int,
+    persistent: bool = False,
 ) -> BatchResult:
     """gRPC 서버로 대량 요청을 전송합니다.
 
@@ -24,11 +25,15 @@ def run_grpc_batch(
         job_type: 작업 타입
         params: 작업 파라미터
         count: 요청 개수
-        concurrency: 동시 요청 수
+        concurrency: 동시 요청 수 (persistent=False일 때만 사용)
+        persistent: True이면 단일 연결로 모든 요청 전송, False이면 각 요청마다 연결 생성
 
     Returns:
         BatchResult: 성공/실패 결과
     """
+    if persistent:
+        return _run_grpc_batch_persistent(grpc_host, grpc_port, job_type, params, count)
+    
     successes: list[dict[str, object]] = []
     failures: list[dict[str, object]] = []
 
@@ -44,6 +49,55 @@ def run_grpc_batch(
                 successes.append(result.data)
             else:
                 failures.append(result.data)
+    return BatchResult(successes=successes, failures=failures)
+
+
+def _run_grpc_batch_persistent(
+    grpc_host: str,
+    grpc_port: int,
+    job_type: str,
+    params: dict[str, object],
+    count: int,
+) -> BatchResult:
+    """단일 gRPC 연결로 여러 요청을 전송합니다."""
+    successes: list[dict[str, object]] = []
+    failures: list[dict[str, object]] = []
+    
+    try:
+        from grpc_api.client import GrpcJobClient
+
+        with GrpcJobClient(host=grpc_host, port=grpc_port) as client:
+            # 여러 요청을 순차적으로 전송
+            for _ in range(count):
+                try:
+                    record = client.create_job(job_type, params)
+
+                    if record.status == "done":
+                        # 동기 작업: 결과가 params["result"]에 들어있음
+                        result_data = record.params.get("result") if record.params else None
+                        successes.append({
+                            "type": record.type,
+                            "params": params,
+                            "result": result_data,
+                            "status": record.status,
+                            "mode": "sync",
+                        })
+                    else:
+                        # 비동기 작업: job_id 반환
+                        successes.append({
+                            "id": record.id,
+                            "type": record.type,
+                            "params": params,
+                            "status": record.status,
+                            "mode": "async",
+                        })
+                except Exception as exc:
+                    failures.append({"error": str(exc)})
+    except Exception as exc:
+        # 연결 실패 시 모든 요청을 실패로 처리
+        for _ in range(count - len(successes) - len(failures)):
+            failures.append({"error": str(exc)})
+    
     return BatchResult(successes=successes, failures=failures)
 
 
