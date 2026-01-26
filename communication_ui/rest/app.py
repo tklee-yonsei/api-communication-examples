@@ -212,10 +212,11 @@ def create_app() -> Flask:
         concurrency = coerce_int(
             payload.get("concurrency"), default=8, minimum=1, maximum=MAX_CONCURRENCY
         )
+        persistent = bool(payload.get("persistent", False))
 
         started_at = time.perf_counter()
         result: BatchResult = run_websocket_batch(
-            websocket_url, job_type, params, count, concurrency
+            websocket_url, job_type, params, count, concurrency, persistent
         )
         duration = time.perf_counter() - started_at
 
@@ -234,6 +235,7 @@ def create_app() -> Flask:
                 "params": params,
                 "requested": count,
                 "concurrency": concurrency,
+                "persistent": persistent,
                 "duration_ms": round(duration * 1000, 2),
                 "throughput_per_sec": round(count / duration, 2) if duration else None,
                 "success": len(result.successes),
@@ -267,10 +269,11 @@ def create_app() -> Flask:
         concurrency = coerce_int(
             payload.get("concurrency"), default=8, minimum=1, maximum=MAX_CONCURRENCY
         )
+        persistent = bool(payload.get("persistent", False))
 
         started_at = time.perf_counter()
         result: BatchResult = run_grpc_batch(
-            grpc_host, grpc_port, job_type, params, count, concurrency
+            grpc_host, grpc_port, job_type, params, count, concurrency, persistent
         )
         duration = time.perf_counter() - started_at
 
@@ -290,6 +293,7 @@ def create_app() -> Flask:
                 "params": params,
                 "requested": count,
                 "concurrency": concurrency,
+                "persistent": persistent,
                 "duration_ms": round(duration * 1000, 2),
                 "throughput_per_sec": round(count / duration, 2) if duration else None,
                 "success": len(result.successes),
