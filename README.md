@@ -1,7 +1,7 @@
 # 마이크로서비스 API 통신 예제
 
 마이크로서비스 간 통신 방식을 비교하고 실습하는 프로젝트입니다.
-현재는 **REST API**, **gRPC**, **WebSocket** 경로의 서버/클라이언트를 제공합니다. Message Queue 버전은 이후 단계에서 추가됩니다.
+현재는 **REST API**, **gRPC**, **WebSocket**, **Message Queue** 경로의 서버/클라이언트를 모두 제공합니다.
 
 ## 참고 글
 
@@ -16,7 +16,7 @@
 | **REST API**      | HTTP 기반, 요청-응답      | CRUD 작업, 외부 API  | ✅ 구현됨 |
 | **gRPC**          | 바이너리 프로토콜, 고성능 | 내부 서비스 간 통신  | ✅ 구현됨 |
 | **WebSocket**     | 양방향 실시간             | 모니터링, 알림       | ✅ 구현됨 |
-| **Message Queue** | 비동기 처리               | 작업 큐, 이벤트 처리 | 🚧 예정   |
+| **Message Queue** | 비동기 처리               | 작업 큐, 이벤트 처리 | ✅ 구현됨 |
 
 ## 프로젝트 구조
 
@@ -47,11 +47,14 @@ docker compose --profile dev up -d
 docker compose --profile prod up -d
 ```
 
-| 서비스           | 포트  | 설명                                      |
-| ---------------- | ----- | ----------------------------------------- |
-| REST API         | 8080  | FastAPI REST 서버 (curl로 직접 호출 가능) |
-| gRPC API         | 50051 | gRPC 서버 (grpcurl로 호출 가능)           |
-| communication-ui | 3001  | 브라우저 UI. 1/100/10000 버튼 지원        |
+| 서비스            | 포트  | 설명                                      |
+| ----------------- | ----- | ----------------------------------------- |
+| REST API          | 8080  | FastAPI REST 서버 (curl로 직접 호출 가능) |
+| gRPC API          | 50051 | gRPC 서버 (grpcurl로 호출 가능)           |
+| WebSocket API     | 8082  | WebSocket 서버                            |
+| Message Queue API | 8083  | MQ 서버 (Redis Pub/Sub)                   |
+| Redis             | 6379  | Redis 서버 (MQ용)                         |
+| communication-ui  | 3001  | 브라우저 UI. 1/100/10000 버튼 지원        |
 
 ### UI 사용법 (communication-ui)
 

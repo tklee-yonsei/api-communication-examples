@@ -16,12 +16,14 @@ from communication_ui.rest.config import (
     DEFAULT_GRPC_HOST,
     DEFAULT_GRPC_PORT,
     DEFAULT_WEBSOCKET_URL,
+    DEFAULT_MQ_BASE_URL,
     MAX_CONCURRENCY,
     MAX_COUNT,
 )
 from communication_ui.rest.grpc_client import run_grpc_batch
 from communication_ui.rest.rest_client import run_batch
 from communication_ui.rest.websocket_client import run_websocket_batch
+from communication_ui.rest.mq_client import run_mq_batch
 from communication_ui.rest.types import BatchResult
 from communication_ui.rest.utils import coerce_int, parse_params
 
@@ -54,6 +56,7 @@ def create_app() -> Flask:
             default_grpc_host=DEFAULT_GRPC_HOST,
             default_grpc_port=DEFAULT_GRPC_PORT,
             default_websocket_url=DEFAULT_WEBSOCKET_URL,
+            default_mq_base_url=DEFAULT_MQ_BASE_URL,
         )
 
     @app.get("/api/jobs")
@@ -384,6 +387,109 @@ def create_app() -> Flask:
                 client.close()
         except Exception as exc:
             return make_response(jsonify({"error": str(exc)}), 500)
+
+    # ==========================================
+    # Message Queue API 프록시 엔드포인트
+    # ==========================================
+
+    @app.post("/api/mq/batch")
+    def mq_batch() -> Response:  # pyright: ignore[reportUnusedFunction]
+        """Message Queue 서버로 대량 요청을 전송합니다."""
+        payload: dict[str, object] = request.get_json(silent=True) or {}
+        try:
+            mq_base_url = str(payload.get("mq_base_url") or DEFAULT_MQ_BASE_URL)
+            job_type = str(payload.get("job_type") or "echo")
+            params = parse_params(payload.get("params"))
+            count = coerce_int(
+                payload.get("count"), default=1, minimum=1, maximum=MAX_COUNT
+            )
+            concurrency = coerce_int(
+                payload.get("concurrency"), default=8, minimum=1, maximum=MAX_CONCURRENCY
+            )
+            persistent = bool(payload.get("persistent", False))
+
+            started_at = time.perf_counter()
+            result: BatchResult = run_mq_batch(
+                mq_base_url, job_type, params, count, concurrency, persistent
+            )
+            duration = time.perf_counter() - started_at
+
+            sample_ids: list[str] = [
+                str(item["id"]) for item in result.successes[:20] if "id" in item
+            ]
+            sample_results: list[object] = [
+                item["result"] for item in result.successes[:20] if "result" in item
+            ]
+            sample_failures: list[dict[str, object]] = result.failures[:10]
+
+            return jsonify(
+                {
+                    "mq_base_url": mq_base_url,
+                    "job_type": job_type,
+                    "params": params,
+                    "requested": count,
+                    "concurrency": concurrency,
+                    "persistent": persistent,
+                    "duration_ms": round(duration * 1000, 2),
+                    "throughput_per_sec": round(count / duration, 2) if duration else None,
+                    "success": len(result.successes),
+                    "failure": len(result.failures),
+                    "sample_job_ids": sample_ids,
+                    "sample_results": sample_results,
+                    "sample_failures": sample_failures,
+                }
+            )
+        except Exception as exc:
+            # 예외를 JSON으로 반환 (HTML 에러 페이지 방지)
+            import traceback
+            return make_response(jsonify(
+                {
+                    "error": str(exc),
+                    "traceback": traceback.format_exc(),
+                    "mq_base_url": payload.get("mq_base_url", ""),
+                    "job_type": payload.get("job_type", ""),
+                    "requested": payload.get("count", 0),
+                    "persistent": payload.get("persistent", False),
+                    "success": 0,
+                    "failure": 1,
+                    "sample_failures": [{"error": str(exc)}],
+                }
+            ), 500)
+
+    @app.get("/api/mq/jobs/<job_id>")
+    def mq_get_job(  # pyright: ignore[reportUnusedFunction]
+        job_id: str,
+    ) -> Response:
+        """Message Queue 서버에서 Job 상태를 조회합니다."""
+        mq_base_url = str(request.args.get("mq_base_url") or DEFAULT_MQ_BASE_URL)
+        session = Session()
+        try:
+            resp = session.get(f"{mq_base_url}/jobs/{job_id}", timeout=10)
+            if resp.status_code == 404:
+                return make_response(jsonify({"error": f"Job {job_id} not found"}), 404)
+            resp.raise_for_status()
+            return jsonify(resp.json())
+        except Exception as exc:  # pragma: no cover
+            return make_response(jsonify({"error": str(exc)}), 500)
+        finally:
+            session.close()
+
+    @app.get("/api/mq/jobs")
+    def mq_list_jobs() -> Response:  # pyright: ignore[reportUnusedFunction]
+        """Message Queue 서버에서 전체 Job 목록을 조회합니다."""
+        mq_base_url = str(request.args.get("mq_base_url") or DEFAULT_MQ_BASE_URL)
+        limit = coerce_int(
+            request.args.get("limit"), default=50, minimum=1, maximum=1000
+        )
+        session = Session()
+        try:
+            resp = session.get(f"{mq_base_url}/jobs?limit={limit}", timeout=10)
+            resp.raise_for_status()
+            return jsonify(resp.json())
+        except Exception as exc:  # pragma: no cover
+            return make_response(jsonify({"error": str(exc)}), 500)
+        finally:
+            session.close()
 
     return app
 

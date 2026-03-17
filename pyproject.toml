@@ -17,6 +17,8 @@ dependencies = [
   "grpcio>=1.70.0",
   "grpcio-tools>=1.70.0",
   "protobuf>=5.29.0",
+  # Redis 의존성 (Message Queue)
+  "redis[hiredis]>=5.2.0",
 ]
 
 [dependency-groups]

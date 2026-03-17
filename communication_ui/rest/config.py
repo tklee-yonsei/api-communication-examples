@@ -25,5 +25,12 @@ DEFAULT_WEBSOCKET_URL = os.getenv(
     "WEBSOCKET_API_URL", "ws://websocket-api-dev:8082/ws"
 )
 
+# Message Queue API 설정
+# Docker 네트워크 내부: mq-api-dev:8083
+# devcontainer/로컬: localhost:8083 (포트 포워딩 필요)
+DEFAULT_MQ_BASE_URL = os.getenv(
+    "MQ_API_BASE_URL", "http://mq-api-dev:8083"
+)
+
 MAX_CONCURRENCY = 64
 MAX_COUNT = 20000

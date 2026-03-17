@@ -111,6 +111,64 @@ services:
       - app-network
 
   # ===========================================
+  # Redis (Message Queue용)
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ===========================================
+  # Message Queue API 서버 (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
+  # ===========================================
+  mq-api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: mq_api/Dockerfile.dev
+    ports:
+      - "8083:8083"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./communication:/app/communication
+      - ./mq_api:/app/mq_api
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ===========================================
+  # Message Queue API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  mq-api-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: mq_api/Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ===========================================
   # REST UI (개발용)
   # 볼륨 마운트로 실시간 코드 반영
   # ===========================================
@@ -125,6 +183,9 @@ services:
       - REST_API_BASE_URL=http://rest-api-dev:8080
       - GRPC_API_HOST=grpc-api-dev
       - GRPC_API_PORT=50051
+      - WEBSOCKET_API_URL=ws://websocket-api-dev:8082/ws
+      - MQ_API_BASE_URL=http://mq-api-dev:8083
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./communication_ui:/app/communication_ui
       - ./communication:/app/communication
@@ -136,6 +197,8 @@ services:
       grpc-api-dev:
         condition: service_started
       websocket-api-dev:
+        condition: service_started
+      mq-api-dev:
         condition: service_started
     networks:
       - app-network
@@ -155,12 +218,17 @@ services:
       - REST_API_BASE_URL=http://rest-api-prod:8080
       - GRPC_API_HOST=grpc-api-prod
       - GRPC_API_PORT=50051
+      - WEBSOCKET_API_URL=ws://websocket-api-prod:8082/ws
+      - MQ_API_BASE_URL=http://mq-api-prod:8083
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       rest-api-prod:
         condition: service_started
       grpc-api-prod:
         condition: service_started
       websocket-api-prod:
+        condition: service_started
+      mq-api-prod:
         condition: service_started
     networks:
       - app-network

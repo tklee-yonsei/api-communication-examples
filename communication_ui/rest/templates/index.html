@@ -52,7 +52,7 @@
           <button class="protocol-btn" data-protocol="mq">
             <span class="proto-icon">📨</span>
             <span class="proto-name">Message Queue</span>
-            <span class="proto-status planned">예정</span>
+            <span class="proto-status implemented">구현됨</span>
           </button>
         </div>
 
@@ -305,6 +305,7 @@
       <button class="tab active" data-tab="rest">REST API</button>
       <button class="tab" data-tab="grpc">gRPC</button>
       <button class="tab" data-tab="websocket">WebSocket</button>
+      <button class="tab" data-tab="mq">Message Queue</button>
     </nav>
 
     <!-- REST 탭 내용 -->
@@ -427,6 +428,47 @@
       </section>
     </div>
 
+    <div id="mq-tab" class="tab-content">
+      <section class="card">
+        <h2>Message Queue 설정</h2>
+        <div class="field">
+          <label for="mqBaseUrl">MQ API Base URL</label>
+          <input id="mqBaseUrl" type="text" value="{{ default_mq_base_url }}" />
+          <p class="hint">Docker 네트워크 내부 (기본값): http://mq-api-dev:8083. devcontainer/로컬: http://localhost:8083 (포트 포워딩 필요).</p>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="mqJobType">job type</label>
+            <input id="mqJobType" type="text" value="echo" />
+          </div>
+          <div class="field">
+            <label for="mqConcurrency">동시 요청 수</label>
+            <input id="mqConcurrency" type="number" value="8" min="1" max="64" />
+          </div>
+        </div>
+        <div class="field">
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <input id="mqPersistent" type="checkbox" style="margin-top: 4px; width: auto; flex: 0 0 auto; min-width: 0;" />
+            <div style="flex: 1; min-width: 0;">
+              <label for="mqPersistent" style="display: block; margin-bottom: 4px; cursor: pointer;">
+                연결 열고 한꺼번에 보내기 (단일 연결로 모든 요청 전송)
+              </label>
+              <p class="hint" style="margin: 0;">체크하면 하나의 HTTP 클라이언트로 모든 요청을 병렬 전송합니다. Message Queue의 장점을 활용할 수 있습니다.</p>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="mqParams">params (JSON)</label>
+          <textarea id="mqParams" rows="4">{ "message": "hello" }</textarea>
+        </div>
+        <div class="actions">
+          <button data-count="1" data-protocol="mq">1개 전송</button>
+          <button data-count="100" data-protocol="mq">100개 전송</button>
+          <button data-count="10000" data-protocol="mq" class="danger">10000개 전송</button>
+        </div>
+      </section>
+    </div>
+
     <section class="card">
       <h2>Job 타입 예시</h2>
       <div class="examples">
@@ -457,6 +499,7 @@
             <option value="rest">REST</option>
             <option value="grpc">gRPC</option>
             <option value="websocket">WebSocket</option>
+            <option value="mq">Message Queue</option>
           </select>
         </div>
       </div>
@@ -581,6 +624,9 @@
           // WebSocket 탭도 업데이트
           document.getElementById("websocketJobType").value = type || "";
           document.getElementById("websocketParams").value = JSON.stringify(params || {}, null, 2);
+          // Message Queue 탭도 업데이트
+          document.getElementById("mqJobType").value = type || "";
+          document.getElementById("mqParams").value = JSON.stringify(params || {}, null, 2);
         } catch (err) {
           console.error("failed to load example", err);
         }
@@ -595,6 +641,8 @@
           runGrpcBatch(count);
         } else if (protocol === "websocket") {
           runWebSocketBatch(count);
+        } else if (protocol === "mq") {
+          runMqBatch(count);
         } else {
           runBatch(count);
         }
@@ -623,6 +671,9 @@
           // WebSocket은 직접 연결이 필요하므로 상태 조회는 지원하지 않음
           statusBox.textContent = "WebSocket은 실시간 연결을 통해 상태를 확인하세요.";
           return;
+        } else if (protocol === "mq") {
+          const mqBaseUrl = document.getElementById("mqBaseUrl").value.trim();
+          url = `/api/mq/jobs/${encodeURIComponent(jobId)}?mq_base_url=${encodeURIComponent(mqBaseUrl)}`;
         } else {
           const baseUrl = document.getElementById("baseUrl").value.trim();
           url = `/api/jobs/${encodeURIComponent(jobId)}?base_url=${encodeURIComponent(baseUrl)}`;
@@ -715,6 +766,35 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ websocket_url: websocketUrl, job_type: jobType, params, count, concurrency, persistent }),
+        });
+        const data = await resp.json();
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resultBox.textContent = `실패: ${err}`;
+      }
+    }
+
+    async function runMqBatch(count) {
+      const mqBaseUrl = document.getElementById("mqBaseUrl").value.trim();
+      const jobType = document.getElementById("mqJobType").value.trim() || "echo";
+      const concurrency = Number(document.getElementById("mqConcurrency").value || "1");
+      const persistent = document.getElementById("mqPersistent").checked;
+      const paramsText = document.getElementById("mqParams").value;
+
+      let params;
+      try {
+        params = paramsText ? JSON.parse(paramsText) : {};
+      } catch (err) {
+        resultBox.textContent = "params JSON 파싱 오류: " + err;
+        return;
+      }
+
+      resultBox.textContent = `Message Queue 요청 중... (${count}개, ${persistent ? "단일 연결" : "다중 연결"})`;
+      try {
+        const resp = await fetch("/api/mq/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mq_base_url: mqBaseUrl, job_type: jobType, params, count, concurrency, persistent }),
         });
         const data = await resp.json();
         resultBox.textContent = JSON.stringify(data, null, 2);
@@ -1080,39 +1160,26 @@
       },
       mq: {
         name: "Message Queue",
-        badge: "AMQP/MQTT",
+        badge: "Redis Pub/Sub",
         badgeClass: "mq",
         cardClass: "mq-card",
-        color: "#f59e0b",
         features: [
-          { icon: "📨", title: "비동기 처리", desc: "생산자-소비자 분리" },
-          { icon: "💾", title: "메시지 지속성", desc: "장애 시에도 메시지 보존" },
-          { icon: "📊", title: "부하 분산", desc: "여러 소비자가 처리" }
+          { icon: "📨", title: "비동기 메시징", desc: "발행-구독 패턴" },
+          { icon: "🔄", title: "디커플링", desc: "생산자와 소비자 분리" },
+          { icon: "⚡", title: "확장성", desc: "여러 워커가 동시 처리" }
         ],
-        example: { code: "queue.publish()", data: '{ "job": "process" }' },
+        example: { code: "redis.publish()", data: '{ "job_id": "abc", "status": "done" }' },
         comparison: {
-          protocol: "AMQP/MQTT/Redis",
-          format: "다양함",
-          connection: "브로커 경유",
-          direction: "Pub/Sub, Queue",
-          realtime: "⚠️ 근실시간",
-          schema: "선택적",
-          browser: "❌ 직접 불가",
+          protocol: "Redis Pub/Sub",
+          format: "JSON",
+          connection: "비연결형",
+          direction: "단방향 (Pub/Sub)",
+          realtime: "✅ 이벤트 기반",
+          schema: "없음",
+          browser: "⚠️ 서버 사이드",
           useCase: "작업 큐, 이벤트 처리"
         },
-        flow: {
-          pathLabel: "Message Queue (Broker 경유)",
-          payload: "~30 bytes",
-          animationData: '{ "job": "process" }',
-          responseData: "ack: true"
-        },
-        useCases: [
-          "📨 백그라운드 작업 처리",
-          "🔄 서비스 간 느슨한 결합",
-          "📊 부하 분산이 필요할 때",
-          "💾 메시지 지속성이 중요할 때"
-        ],
-        planned: true
+        planned: false
       }
     };
 
@@ -1160,6 +1227,18 @@
     ];
 
     protocolData.mq.color = "#f59e0b";
+    protocolData.mq.flow = {
+      pathLabel: "Redis Pub/Sub (Broker 경유)",
+      payload: "~30 bytes",
+      animationData: '{ "job_id": "abc", "status": "done" }',
+      responseData: "ack: true"
+    };
+    protocolData.mq.useCases = [
+      "📨 백그라운드 작업 처리",
+      "🔄 서비스 간 느슨한 결합",
+      "📊 부하 분산이 필요할 때",
+      "💾 메시지 지속성이 중요할 때"
+    ];
 
     const comparisonLabels = {
       protocol: "프로토콜",
