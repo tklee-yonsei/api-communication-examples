@@ -58,7 +58,7 @@ docker compose --profile prod up -d
 
 ### UI 사용법 (communication-ui)
 
-1) 브라우저에서 <http://localhost:3000> 접속  
+1) 브라우저에서 <http://localhost:3001> 접속  
 2) `REST API Base URL` 기본값(rest-api:8080)은 컨테이너 간 호출용이며, 호스트에서 직접 호출하려면 `http://localhost:8080`으로 변경  
 3) "Job 타입 예시" 버튼으로 job type/params를 자동 채움  
 4) `1/100/10000개 전송` 버튼으로 대량 요청 → 처리 속도/성공 수를 확인  
