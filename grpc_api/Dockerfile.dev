@@ -1,0 +1,33 @@
+FROM python:3.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# uv 설치
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# pyproject.toml 및 uv.lock 복사
+COPY pyproject.toml uv.lock* /app/
+
+# 소스 코드는 볼륨 마운트로 제공되므로 빈 패키지 디렉토리 생성
+RUN mkdir -p /app/communication /app/rest_api /app/grpc_api/protos && \
+    touch /app/communication/__init__.py && \
+    touch /app/rest_api/__init__.py && \
+    touch /app/grpc_api/__init__.py
+
+# uv로 의존성 설치 (시스템 Python에 직접 설치)
+RUN uv pip install --system -r pyproject.toml
+
+EXPOSE 50051
+
+# 시작 시 proto 파일을 컴파일하고 서버 실행
+CMD python -m grpc_tools.protoc \
+    --proto_path=grpc_api/protos \
+    --python_out=grpc_api/protos \
+    --grpc_python_out=grpc_api/protos \
+    --pyi_out=grpc_api/protos \
+    grpc_api/protos/jobs.proto && \
+    sed -i 's/import jobs_pb2 as jobs__pb2/from grpc_api.protos import jobs_pb2 as jobs__pb2/g' grpc_api/protos/jobs_pb2_grpc.py && \
+    python -m grpc_api.server

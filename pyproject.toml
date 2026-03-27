@@ -1,3 +1,34 @@
+[project]
+name = "api-communication-examples"
+version = "0.1.0"
+description = "REST/gRPC/WebSocket/Message Queue comparison playground."
+requires-python = ">=3.14"
+dependencies = [
+  "flask==3.1.2",
+  "flask-sock==0.7.0",
+  "fastapi==0.128.0",
+  "uvicorn[standard]==0.40.0",
+  "httpx==0.28.1",
+  "requests==2.32.5",
+  "websockets==16.0",
+  "werkzeug==3.1.5",
+  "types-requests==2.32.4.20260107",
+  # gRPC 의존성
+  "grpcio>=1.70.0",
+  "grpcio-tools>=1.70.0",
+  "protobuf>=5.29.0",
+  # Redis 의존성 (Message Queue)
+  "redis[hiredis]>=5.2.0",
+]
+
+[dependency-groups]
+dev = [
+  "black",
+  "pylint",
+  "pytest",
+  "pytest-asyncio",
+]
+
 [tool.black]
 line-length = 88
 
@@ -13,6 +44,8 @@ warn_unused_configs = true
 disallow_untyped_defs = true  # 타입 힌트가 없는 함수 허용 안 함
 disallow_incomplete_defs = true  # 부분 타입 힌트 허용 안 함
 ignore_missing_imports = true
+# gRPC 생성 파일은 타입 검사 제외
+exclude = ["grpc_api/protos/"]
 
 # basedpyright: 타입 체킹 (에디터에서 실시간)
 [tool.basedpyright]
@@ -20,6 +53,11 @@ pythonVersion = "3.14"
 typeCheckingMode = "strict"
 reportUnusedVariable = "warning"
 reportUnusedImport = "warning"
+reportUnusedFunction = "warning"
+# 타입 스텁이 없는 라이브러리 무시
+reportMissingTypeStubs = false
+# gRPC 생성 파일은 타입 검사 제외
+exclude = ["grpc_api/protos/"]
 
 # pytest: 테스트 프레임워크
 [tool.pytest.ini_options]

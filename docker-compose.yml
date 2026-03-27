@@ -1,81 +1,238 @@
 # 마이크로서비스 API 통신 테스트 환경
-# 사용법: docker-compose up -d
+#
+# 사용법:
+#   개발:     docker compose --profile dev up -d
+#   프로덕션: docker compose --profile prod up -d
 
 services:
   # ===========================================
-  # 인프라 서비스
+  # FastAPI REST API 서버 (개발용)
+  # 볼륨 마운트 + 핫리로드 활성화
   # ===========================================
-
-  redis:
-    image: redis:7-alpine
+  rest-api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: rest_api/Dockerfile.dev
     ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
+      - "8080:8080"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./communication:/app/communication
+      - ./rest_api:/app/rest_api
+    networks:
+      - app-network
 
   # ===========================================
-  # REST API 서버
+  # FastAPI REST API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
   # ===========================================
-
-  rest-api:
+  rest-api-prod:
+    profiles: ["prod"]
     build:
       context: .
       dockerfile: rest_api/Dockerfile
     ports:
       - "8080:8080"
     environment:
-      - REDIS_HOST=redis
-    depends_on:
-      redis:
-        condition: service_healthy
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
 
   # ===========================================
-  # gRPC 서버
+  # gRPC API 서버 (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
   # ===========================================
-
-  grpc-server:
+  grpc-api-dev:
+    profiles: ["dev"]
     build:
       context: .
-      dockerfile: grpc/Dockerfile
+      dockerfile: grpc_api/Dockerfile.dev
     ports:
       - "50051:50051"
     environment:
-      - REDIS_HOST=redis
-    depends_on:
-      redis:
-        condition: service_healthy
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./communication:/app/communication
+      - ./grpc_api:/app/grpc_api
+    networks:
+      - app-network
 
   # ===========================================
-  # WebSocket 서버
+  # gRPC API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
   # ===========================================
-
-  websocket-server:
+  grpc-api-prod:
+    profiles: ["prod"]
     build:
       context: .
-      dockerfile: websocket/Dockerfile
+      dockerfile: grpc_api/Dockerfile
     ports:
-      - "8081:8081"
+      - "50051:50051"
     environment:
-      - REDIS_HOST=redis
-    depends_on:
-      redis:
-        condition: service_healthy
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
 
   # ===========================================
-  # Message Queue Worker
+  # WebSocket API 서버 (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
   # ===========================================
-
-  worker:
+  websocket-api-dev:
+    profiles: ["dev"]
     build:
       context: .
-      dockerfile: message_queue/Dockerfile
+      dockerfile: websocket_api/Dockerfile.dev
+    ports:
+      - "8082:8082"
     environment:
-      - REDIS_HOST=redis
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./communication:/app/communication
+      - ./websocket_api:/app/websocket_api
+    networks:
+      - app-network
+
+  # ===========================================
+  # WebSocket API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  websocket-api-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: websocket_api/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+
+  # ===========================================
+  # Redis (Message Queue용)
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ===========================================
+  # Message Queue API 서버 (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
+  # ===========================================
+  mq-api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: mq_api/Dockerfile.dev
+    ports:
+      - "8083:8083"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./communication:/app/communication
+      - ./mq_api:/app/mq_api
     depends_on:
       redis:
         condition: service_healthy
-    deploy:
-      replicas: 2 # 2개의 Worker 인스턴스
+    networks:
+      - app-network
+
+  # ===========================================
+  # Message Queue API 서버 (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  mq-api-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: mq_api/Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ===========================================
+  # REST UI (개발용)
+  # 볼륨 마운트로 실시간 코드 반영
+  # ===========================================
+  communication-ui-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: communication_ui/Dockerfile.dev
+    ports:
+      - "3001:3000"
+    environment:
+      - REST_API_BASE_URL=http://rest-api-dev:8080
+      - GRPC_API_HOST=grpc-api-dev
+      - GRPC_API_PORT=50051
+      - WEBSOCKET_API_URL=ws://websocket-api-dev:8082/ws
+      - MQ_API_BASE_URL=http://mq-api-dev:8083
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./communication_ui:/app/communication_ui
+      - ./communication:/app/communication
+      - ./rest_api:/app/rest_api
+      - ./grpc_api:/app/grpc_api
+    depends_on:
+      rest-api-dev:
+        condition: service_started
+      grpc-api-dev:
+        condition: service_started
+      websocket-api-dev:
+        condition: service_started
+      mq-api-dev:
+        condition: service_started
+    networks:
+      - app-network
+
+  # ===========================================
+  # REST UI (프로덕션용)
+  # 이미지 빌드 시 코드 복사, 볼륨 마운트 없음
+  # ===========================================
+  communication-ui-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: communication_ui/Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - REST_API_BASE_URL=http://rest-api-prod:8080
+      - GRPC_API_HOST=grpc-api-prod
+      - GRPC_API_PORT=50051
+      - WEBSOCKET_API_URL=ws://websocket-api-prod:8082/ws
+      - MQ_API_BASE_URL=http://mq-api-prod:8083
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      rest-api-prod:
+        condition: service_started
+      grpc-api-prod:
+        condition: service_started
+      websocket-api-prod:
+        condition: service_started
+      mq-api-prod:
+        condition: service_started
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

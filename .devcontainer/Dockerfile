@@ -11,29 +11,13 @@ RUN apt-get update && apt-get install -y \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# pip 업그레이드
-RUN pip install --no-cache-dir --upgrade pip
-
-# 코드 품질 도구
-RUN pip install --no-cache-dir \
-    black \
-    pylint \
-    pytest
-
-# API 통신 예제용 패키지
-RUN pip install --no-cache-dir \
-    # REST API
-    flask \
-    requests \
-    # gRPC
-    grpcio \
-    grpcio-tools \
-    # WebSocket
-    flask-socketio \
-    "python-socketio[client]" \
-    # Message Queue
-    redis \
-    pika
+# uv 설치
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # 작업 디렉토리 설정
 WORKDIR /workspace
+
+# uv 환경 변수 - 시스템 Python 사용 (venv 생성 안 함)
+ENV UV_SYSTEM_PYTHON=1
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_PYTHON_DOWNLOADS=never
